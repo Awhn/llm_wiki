@@ -1,10 +1,10 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
-import { WikiIdentityGate } from "@/components/settings/sections/wiki-sync-section";
+import { useWikiSync } from "@/lib/wiki-sync";
 import "./index.css";
 import i18n from "@/i18n";
-import { loadLanguage } from "@/lib/project-store";
+import { loadLanguage, loadWikiUserId } from "@/lib/project-store";
 import { loadAndApplyTheme, watchSystemTheme } from "@/lib/theme";
 import { AppDialogHost } from "@/components/app-dialog-host";
 
@@ -23,12 +23,14 @@ async function initApp() {
     if (savedLanguage) await i18n.changeLanguage(savedLanguage);
     document.documentElement.lang = i18n.resolvedLanguage ?? i18n.language;
     i18n.on("languageChanged", language => { document.documentElement.lang = language; });
+    const userId = await loadWikiUserId().catch(() => null);
+    if (userId) useWikiSync.setState({ userId });
     await loadAndApplyTheme();
     watchSystemTheme();
 
     ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
       <React.StrictMode>
-        <WikiIdentityGate><App /></WikiIdentityGate>
+        <App />
         <AppDialogHost />
       </React.StrictMode>
     );

@@ -1,6 +1,6 @@
 # Gitea 공유 Wiki
 
-프로젝트를 열고 **Settings → Wiki Sync**에서 내부 Gitea 저장소를 연결한다. 공유 단위는 프로젝트의 `wiki/` 디렉터리다. 각 사용자는 독립적인 프로젝트와 작업 사본을 갖는다.
+프로젝트 선택 화면에서 **기존 프로젝트 참여하기**로 내부 Gitea 저장소에 참여할 수 있다. 이미 열어 둔 프로젝트는 **설정 → 위키 동기화**에서 연결한다. 공유 단위는 프로젝트의 `wiki/` 디렉터리다. 각 사용자는 독립적인 프로젝트와 작업 사본을 갖는다.
 
 ## 관리자 준비
 
@@ -18,7 +18,8 @@ HTTPS를 쓰면 첫 두 값 모두 `https://`로 설정한다. URL에는 토큰�
 
 ## 시작과 연결
 
-- 최초 실행 시 입력한 사용자 ID는 장치의 `app-state.json`에 저장된다. 영문자 또는 숫자로 시작하는 1~64자의 영문자, 숫자, 점, 밑줄, 하이픈을 허용한다. 설정에서 변경하면 다음 커밋부터 `ID <ID@local.invalid>`로 기록된다. 각 Wiki의 로컬 Git 설정을 사용한다.
+- **프로젝트 전환 → 기존 프로젝트 참여하기**에서 사용자 ID와 기존 공유 저장소의 전체 SSH 또는 HTTPS URL을 입력한다. 상위 폴더를 선택하면 저장소 이름의 하위 폴더에 프로젝트가 열리고 자동 동기화가 시작된다. 같은 이름의 폴더가 있으면 다른 위치를 선택한다. 이전에 내려받은 사본은 **프로젝트 열기**로 다시 연다.
+- 사용자 ID는 이 장치의 위키 변경 기록에 쓰는 작성자 이름이다. 예를 들어 `홍길동`, `연구팀_01`을 사용할 수 있다. 한글·영문·숫자로 시작하는 1~64자를 허용하며 두 번째 글자부터 점, 밑줄, 하이픈을 쓸 수 있다. 참여에 성공하거나 설정에서 저장하면 `app-state.json`에 기억되며 다음 커밋에 `ID <ID@local.invalid>`로 기록된다. 로컬 프로젝트 생성과 열기는 ID 입력 없이 사용할 수 있다.
 - **Clone existing repository**는 임시 디렉터리에 원격 기본 브랜치를 가져와 파일 유형을 검사한 후 적용한다. 기본 템플릿을 포함해 로컬 Wiki에 파일이 있으면 **Back up local Wiki and clone**을 별도로 선택한다. 백업은 프로젝트의 `.llm-wiki/wiki-backup-<UUID>/`에 보관하며 설정에 경로를 표시한다. 교체 도중 앱이 중단되어 Wiki 디렉터리가 비면 다음 프로젝트 열기에서 이전 디렉터리를 복원한다.
 - **Connect local Wiki**는 빈 원격 저장소에 기존 Markdown을 게시한다. 양쪽에 이력이 있는 경우에는 기존 자료를 백업한 뒤 Clone하거나 새 프로젝트에서 Clone한다. 사용자가 별도로 관리하던 Git 이력은 자동으로 업로드하지 않는다.
 - **Auto sync**를 해제하면 수동 동기화를 사용할 수 있다. **Disconnect**는 연결을 해제하고 로컬 파일, Git 이력과 백업을 보존한다. 같은 URL에 다시 연결할 수 있다.
@@ -47,7 +48,7 @@ HTTPS를 쓰면 첫 두 값 모두 `https://`로 설정한다. URL에는 토큰�
 | `src-tauri/src/commands/page_embedding.rs`, `src-tauri/src/commands/search.rs` | 기존 검색·임베딩 재사용, Git 메타데이터 제외, 내부 모델 전송 제한 |
 | `src/lib/embedding.ts`, `src-tauri/src/commands/project_maintenance.rs` | 삭제된 공유 페이지의 벡터 정리, 수동 인덱스 재구축 시 Git 메타데이터 제외 |
 | `src/lib/wiki-sync.ts`, `src/lib/wiki-sync.test.ts` | 타이머, 수명주기, UI·검색 갱신, 사용자 ID와 타이밍 회귀 테스트 |
-| `src/lib/project-store.ts`, `src/main.tsx` | 사용자 ID 읽기·저장 및 최초 입력 |
+| `src/lib/project-store.ts`, `src/main.tsx` | 장치 사용자 ID 저장 및 시작 시 불러오기 |
 | `src/App.tsx`, `src/components/settings/settings-view.tsx`, `src/components/settings/sections/wiki-sync-section.tsx` | 프로젝트 전환, 설정, 상태 알림과 연결·충돌 조작 |
 | `src/components/editor/wiki-editor.tsx`, `src/components/layout/preview-panel.tsx`, `src/lib/project-file-sync.ts` | 편집 보호, 저장 잠금, 선택 파일 갱신 |
 | `src/components/editor/wiki-reader.tsx`, `src/components/editor/frontmatter-panel.tsx`, `src/lib/wiki-page-resolver.ts` | 누락 이미지 표시 및 공유 페이지의 원본 경로 확인 |
