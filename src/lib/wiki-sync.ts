@@ -29,7 +29,7 @@ function asFault(error: unknown): Fault {
 
 export async function refreshGitPages(project: WikiProject, changes: Changes, current: () => boolean): Promise<boolean> {
   const root = normalizePath(project.path)
-  const { removePageEmbedding, wikiPageIdFromPath } = await import("./embedding")
+  const { removeSyncedPageEmbedding, wikiPageIdFromPath } = await import("./embedding")
   if (!current()) return false
   await refreshProjectFileTree(root, { projectId: project.id, bumpDataVersion: true, clearDisplayTreeFirst: true })
   let complete = true
@@ -52,7 +52,7 @@ export async function refreshGitPages(project: WikiProject, changes: Changes, cu
       }
     } else {
       if (selected()) { store.setSelectedFile(null); store.setFileContent("") }
-      await removePageEmbedding(root, pageId)
+      try { await removeSyncedPageEmbedding(root, pageId) } catch { complete = false }
     }
   }
   return complete

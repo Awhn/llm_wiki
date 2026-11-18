@@ -228,22 +228,25 @@ function projectStemOwnerCounts(projectPath: string): Promise<Map<string, number
   const pp = normalizePath(projectPath)
   const cached = legacyStemOwnerCounts.get(pp)
   if (cached) return cached
-  const pending = Promise.resolve(listDirectory(`${pp}/wiki`)).then((tree) => {
-    const counts = new Map<string, number>()
-    const walk = (nodes: FileNode[]) => {
-      for (const node of nodes) {
-        if (node.is_dir && node.children) walk(node.children)
-        else if (!node.is_dir && /\.md$/i.test(node.name)) {
-          const stem = node.name.replace(/\.md$/i, "").toLowerCase()
-          counts.set(stem, (counts.get(stem) ?? 0) + 1)
-        }
-      }
-    }
-    walk(tree)
-    return counts
-  }).catch(() => new Map<string, number>())
+  const pending = loadStemOwnerCounts(pp).catch(() => new Map<string, number>())
   legacyStemOwnerCounts.set(pp, pending)
   return pending
+}
+
+async function loadStemOwnerCounts(projectPath: string): Promise<Map<string, number>> {
+  const tree = await listDirectory(normalizePath(projectPath) + "/wiki")
+  const counts = new Map<string, number>()
+  const walk = (nodes: FileNode[]) => {
+    for (const node of nodes) {
+      if (node.is_dir && node.children) walk(node.children)
+      else if (!node.is_dir && /\.md$/i.test(node.name)) {
+        const stem = node.name.replace(/\.md$/i, "").toLowerCase()
+        counts.set(stem, (counts.get(stem) ?? 0) + 1)
+      }
+    }
+  }
+  walk(tree)
+  return counts
 }
 
 async function removeLegacyVectorIdIfSafe(projectPath: string, pageId: string): Promise<void> {
@@ -855,6 +858,16 @@ export async function removePageEmbedding(
   } catch {
     // non-critical
   }
+}
+
+/** Remote deletes are replayable. Propagate storage errors so a failed
+ * deletion stays in the journal. A surviving namesake owns its legacy row. */
+export async function removeSyncedPageEmbedding(projectPath: string, pageId: string): Promise<void> {
+  await vectorDeletePage(projectPath, pageId)
+  if (!pageId.includes("/")) return
+  const stem = pageId.slice(pageId.lastIndexOf("/") + 1)
+  const owners = await loadStemOwnerCounts(projectPath)
+  if (!owners.has(stem.toLowerCase())) await vectorDeletePage(projectPath, stem)
 }
 
 /**

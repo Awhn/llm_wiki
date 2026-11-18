@@ -294,7 +294,7 @@ pub async fn rebuild_wiki_index(project_path: String) -> Result<RebuildIndexResu
 fn rebuild_wiki_index_inner(project_path: String) -> Result<RebuildIndexResult, String> {
     let wiki = PathBuf::from(project_path).join("wiki");
     let mut groups: BTreeMap<String, Vec<(String, String)>> = BTreeMap::new();
-    for entry in WalkDir::new(&wiki).follow_links(false) {
+    for entry in WalkDir::new(&wiki).follow_links(false).into_iter().filter_entry(|e| e.file_name() != ".git") {
         let entry = entry.map_err(|error| format!("Failed to enumerate wiki pages: {error}"))?;
         if !entry.file_type().is_file()
             || entry.path().extension().and_then(|v| v.to_str()) != Some("md")

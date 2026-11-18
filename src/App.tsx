@@ -243,6 +243,8 @@ function App() {
           return
         }
 
+        if (await invoke<boolean>("git_sync_managed")) return
+
         const now = Date.now()
         // Cache hit requires BOTH the timestamp AND the in-memory
         // result to be present. `lastCheckedAt` is persisted to

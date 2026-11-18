@@ -578,24 +578,30 @@ fn index_is_allowed(dir: &Path) -> Result<()> {
     Ok(())
 }
 fn stage(dir: &Path, paths: &[String]) -> Result<()> {
-    let mut safe = vec![];
+    let mut args = vec!["add", "-A", "--"];
+    let mut bytes = 0;
+    let root = dir.canonicalize()?;
     for path in paths {
         if !allowed(path) {
             continue;
         }
         let file = dir.join(path);
         if file.try_exists()? {
-            if !fs::symlink_metadata(&file)?.is_file()
-                || file.canonicalize()? != dir.canonicalize()?.join(path)
-            {
+            if !fs::symlink_metadata(&file)?.is_file() || file.canonicalize()? != root.join(path) {
                 return Err(invalid("Wiki Sync cannot stage linked Markdown files."));
             }
         }
-        safe.push(path.as_str());
+        // Leave space for Git's configuration flags and Windows argument quoting.
+        if bytes + path.len() > 12_000 && args.len() > 3 {
+            checked(dir, &args)?;
+            args.truncate(3);
+            bytes = 0;
+        }
+        bytes += path.len() + 3;
+        args.push(path);
     }
-    // Bound argv size on Windows, including for very long paths.
-    for path in safe {
-        checked(dir, &["add", "-A", "--", path])?;
+    if args.len() > 3 {
+        checked(dir, &args)?;
     }
     index_is_allowed(dir)
 }

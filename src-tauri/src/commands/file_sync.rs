@@ -1449,7 +1449,7 @@ fn with_queue_lock<T>(root: &Path, f: impl FnOnce() -> Result<T, String>) -> Res
     f()
 }
 
-fn path_key(path: &Path) -> String {
+pub(super) fn path_key(path: &Path) -> String {
     if let Ok(canonical) = path.canonicalize() {
         return normalize_path_key(&canonical);
     }

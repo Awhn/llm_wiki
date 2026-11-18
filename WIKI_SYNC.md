@@ -45,6 +45,7 @@ HTTPS를 쓰면 첫 두 값 모두 `https://`로 설정한다. URL에는 토큰�
 | `src-tauri/src/commands/file_sync.rs` | Markdown 이벤트, Git 메타데이터 제외, 원격 쓰기 스냅샷 갱신 |
 | `src-tauri/src/commands/project.rs` | 프로젝트 열기 시 중단된 Clone 복구 |
 | `src-tauri/src/commands/page_embedding.rs`, `src-tauri/src/commands/search.rs` | 기존 검색·임베딩 재사용, Git 메타데이터 제외, 내부 모델 전송 제한 |
+| `src/lib/embedding.ts`, `src-tauri/src/commands/project_maintenance.rs` | 삭제된 공유 페이지의 벡터 정리, 수동 인덱스 재구축 시 Git 메타데이터 제외 |
 | `src/lib/wiki-sync.ts`, `src/lib/wiki-sync.test.ts` | 타이머, 수명주기, UI·검색 갱신, 사용자 ID와 타이밍 회귀 테스트 |
 | `src/lib/project-store.ts`, `src/main.tsx` | 사용자 ID 읽기·저장 및 최초 입력 |
 | `src/App.tsx`, `src/components/settings/settings-view.tsx`, `src/components/settings/sections/wiki-sync-section.tsx` | 프로젝트 전환, 설정, 상태 알림과 연결·충돌 조작 |
@@ -56,6 +57,7 @@ HTTPS를 쓰면 첫 두 값 모두 `https://`로 설정한다. URL에는 토큰�
 
 | 명령 | 동작 |
 | --- | --- |
+| `git_sync_managed` | 내부 서버 배포 여부 확인 및 자동 GitHub 업데이트 조회 생략 |
 | `git_sync_status` | 관리자 기본값, 연결, 충돌 파일, 마지막 성공 시각, 미처리 변경 조회 |
 | `git_sync_connect` | Clone, 백업 후 Clone, 로컬 Wiki 연결 |
 | `git_sync_now` | 수동·자동 동기화 또는 사용자 요청에 따른 충돌 해결 완료 |
@@ -72,4 +74,15 @@ HTTPS를 쓰면 첫 두 값 모두 `https://`로 설정한다. URL에는 토큰�
 - 프런트엔드 빌드는 `npm run build`, 외부 모델 호출을 제외한 회귀 테스트는 `npm run test:mocks`로 실행한다.
 - 바이너리와 Git 하위 모듈은 지원하지 않는다. 기존 원본 파일과 미디어가 없는 장치에서도 공유 페이지 본문을 읽을 수 있다. 원본 내용이 동일한지 서버에서 증명하는 기능은 없다.
 - Gitea의 푸시 감사 기록에는 공용 계정이 표시된다. 사용자 ID는 장치에서 입력한 커밋 작성자이며 개인별 서버 인증이나 서명을 제공하지 않는다.
-- 연결할 Git 서버, 호스트 키, 자격 증명, 내부 모델 및 망 정책은 설치 환경에서 배포한다. 앱의 기존 업데이트 확인과 사용자가 직접 실행하는 LLM·웹 검색 등은 각각의 기존 설정을 따른다.
+- 연결할 Git 서버, 호스트 키, 자격 증명, 내부 모델 및 망 정책은 설치 환경에서 배포한다. 내부 서버를 지정하면 시작 시 GitHub 업데이트 조회를 건너뛴다. 사용자가 직접 실행하는 LLM·웹 검색 등은 각각의 기존 설정을 따른다.
+
+### 이번 변경의 검증 결과
+
+| 검사 | 결과 |
+| --- | --- |
+| `npm run build:desktop` | MCP 서버, TypeScript, Vite 프로덕션 번들 빌드 통과 |
+| `npm run test:mocks` | 140개 파일에서 2,072개 테스트 통과 |
+| `cargo test --locked --offline -p llm-wiki-sync` | Git 코어 테스트 11개 통과 |
+| `cargo check --locked --tests` | Linux Tauri 백엔드와 테스트 대상 컴파일 검사 통과 |
+
+실제 사내 Gitea의 SSH 키·HTTPS 자격 증명, 운영 임베딩 모델, OS별 설치 패키지 실행은 이번 검증 범위에 포함되지 않았다. Git 통신은 로컬 bare 원격을 이용해 검증했고 프런트엔드 연동 테스트는 Tauri 명령을 모의 실행했다.

@@ -218,7 +218,7 @@ fn interrupted_directory_swap_recovers_on_open() {
 }
 
 #[test]
-fn refuses_remote_symlinks_and_non_markdown_before_checkout() {
+fn refuses_remote_non_markdown_before_checkout() {
     let t = Team::new();
     t.publish();
     fs::write(t.a.join("index.db"), "private").unwrap();
@@ -229,4 +229,53 @@ fn refuses_remote_symlinks_and_non_markdown_before_checkout() {
     assert!(t.attach(&t.b, "bob", true, true).is_err());
     assert_eq!(fs::read_to_string(t.b.join("keep.md")).unwrap(), "keep");
     assert!(!t.b.join(".git").exists());
+}
+
+#[test]
+fn locally_redirected_push_url_is_rejected_before_network_use() {
+    let team = Team::new();
+    team.publish();
+    set(
+        &team.a,
+        "remote.origin.pushurl",
+        "https://example.invalid/team/wiki",
+    )
+    .unwrap();
+    assert_eq!(team.sync_a().unwrap_err().kind, "Error");
+}
+
+#[test]
+fn explicit_reconnection_preserves_history_and_resumes_paused_repo() {
+    let team = Team::new();
+    team.publish();
+    let before = line(&team.a, &["rev-parse", "HEAD"]).unwrap();
+    enable(&team.a, "bare-test", false).unwrap();
+    assert!(!settings(&team.a, "bare-test").unwrap().unwrap().enabled);
+    disconnect(&team.a).unwrap();
+    assert!(is_disconnected(&team.a).unwrap());
+    team.attach(&team.a, "bob", false, false).unwrap();
+    assert!(!is_disconnected(&team.a).unwrap());
+    assert!(settings(&team.a, "bare-test").unwrap().unwrap().enabled);
+    assert_eq!(line(&team.a, &["rev-parse", "HEAD"]).unwrap(), before);
+}
+
+#[test]
+fn rejects_a_markdown_symlink_before_checkout() {
+    let team = Team::new();
+    team.publish();
+    let blob = line(&team.a, &["rev-parse", "HEAD:overview.md"]).unwrap();
+    checked(
+        &team.a,
+        &[
+            "update-index",
+            "--add",
+            "--cacheinfo",
+            &format!("120000,{blob},linked.md"),
+        ],
+    )
+    .unwrap();
+    checked(&team.a, &["commit", "-m", "link from another client"]).unwrap();
+    checked(&team.a, &["push", "origin", "HEAD:refs/heads/team"]).unwrap();
+    assert!(team.attach(&team.b, "bob", true, false).is_err());
+    assert!(!team.b.join(".git").exists());
 }

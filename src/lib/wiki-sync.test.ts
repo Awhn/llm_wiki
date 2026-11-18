@@ -14,7 +14,7 @@ vi.mock("@tauri-apps/plugin-store", () => ({ load: async () => ({
   get: (key: string) => mock.store.get(key), set: (key: string, value: string) => mock.store.set(key, value), save: mock.save,
 }) }))
 vi.mock("@/commands/fs", () => ({ fileExists: mock.exists, readFile: mock.read }))
-vi.mock("./embedding", () => ({ removePageEmbedding: mock.remove, wikiPageIdFromPath: (_: string, p: string) => p.split("/wiki/")[1].slice(0, -3) }))
+vi.mock("./embedding", () => ({ removeSyncedPageEmbedding: mock.remove, wikiPageIdFromPath: (_: string, p: string) => p.split("/wiki/")[1].slice(0, -3) }))
 vi.mock("./project-file-tree-refresh", () => ({ refreshProjectFileTree: mock.tree }))
 
 const project = { id: "A", path: "/alice", name: "Alice" }
@@ -110,5 +110,23 @@ describe("Wiki Sync", () => {
     mock.invoke.mockRejectedValue(new Error("model offline"))
     expect(await refreshGitPages(project, { token: "x", paths: ["note.md"] }, () => true)).toBe(false)
     expect(useWikiStore.getState().fileContent).toBe("draft")
+  })
+})
+
+describe("Wiki Sync recovery", () => {
+  it("coalesces a push race into one retry within a sync operation", async () => {
+    let attempts = 0
+    mock.invoke.mockImplementation(async name => {
+      if (name === "git_sync_status") return status
+      if (name === "git_sync_now" && attempts++ === 0) throw { kind: "Retry", message: "Remote advanced", files: [] }
+    })
+    await session.action("now")
+    expect(runs()).toBe(2)
+    expect(useWikiSync.getState().phase).toBe("Synced")
+  })
+  it("retains the change journal when deleting vectors fails", async () => {
+    mock.exists.mockResolvedValue(false)
+    mock.remove.mockRejectedValueOnce(new Error("index locked"))
+    expect(await refreshGitPages(project, { token: "delete", paths: ["gone.md"] }, () => true)).toBe(false)
   })
 })

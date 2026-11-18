@@ -1,4 +1,6 @@
-use super::file_sync::{is_content_change_event, mark_app_write_path, record_git_changes};
+use super::file_sync::{
+    is_content_change_event, mark_app_write_path, path_key, record_git_changes,
+};
 use llm_wiki_sync::{self as git, Changes, Fault, Settings};
 use notify::{RecursiveMode, Watcher};
 use serde::Serialize;
@@ -13,6 +15,37 @@ static LOCKS: LazyLock<Mutex<HashMap<PathBuf, Weak<Mutex<()>>>>> = LazyLock::new
 type Watches = Mutex<HashMap<String, notify::RecommendedWatcher>>;
 #[derive(Default)]
 pub struct GitWatches(Watches);
+// Both watcher backends consult this set during a native merge or clone.
+// Read events from the Git directory never enter either scheduling path.
+static REMOTE_WRITES: LazyLock<Mutex<std::collections::HashSet<String>>> =
+    LazyLock::new(Default::default);
+#[derive(Default)]
+struct RemoteWrites(Mutex<Vec<String>>);
+impl RemoteWrites {
+    fn mark(&self, path: &Path) {
+        mark_app_write_path(path);
+        let key = path_key(path);
+        REMOTE_WRITES
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .insert(key.clone());
+        self.0.lock().unwrap_or_else(|p| p.into_inner()).push(key);
+    }
+}
+impl Drop for RemoteWrites {
+    fn drop(&mut self) {
+        let mut active = REMOTE_WRITES.lock().unwrap_or_else(|p| p.into_inner());
+        for key in self
+            .0
+            .get_mut()
+            .unwrap_or_else(|p| p.into_inner())
+            .drain(..)
+        {
+            active.remove(&key);
+        }
+    }
+}
+
 fn error(msg: &str) -> Fault {
     Fault {
         kind: "Error",
@@ -22,6 +55,11 @@ fn error(msg: &str) -> Fault {
 }
 fn origin() -> String {
     std::env::var("LLM_WIKI_GITEA_ORIGIN").unwrap_or_default()
+}
+
+#[tauri::command]
+pub fn git_sync_managed() -> bool {
+    !origin().trim().is_empty()
 }
 
 async fn run<T: Send + 'static>(
@@ -102,15 +140,10 @@ pub async fn git_sync_connect(
     backup: bool,
 ) -> git::Result<()> {
     run(project_path, move |dir| {
-        git::connect(
-            dir,
-            &origin(),
-            &remote,
-            &user_id,
-            clone,
-            backup,
-            &mark_app_write_path,
-        )
+        let writes = RemoteWrites::default();
+        git::connect(dir, &origin(), &remote, &user_id, clone, backup, &|p| {
+            writes.mark(p)
+        })
     })
     .await
 }
@@ -120,7 +153,8 @@ pub async fn git_sync_now(project_path: String, user_id: String, resolve: bool) 
         if git::is_disconnected(dir)? {
             return Err(error("Connect this Wiki first."));
         }
-        git::sync(dir, &origin(), &user_id, resolve, &mark_app_write_path)
+        let writes = RemoteWrites::default();
+        git::sync(dir, &origin(), &user_id, resolve, &|p| writes.mark(p))
     })
     .await
 }
@@ -186,6 +220,12 @@ pub fn git_sync_watch(
     Ok(())
 }
 pub(super) fn is_wiki_page(wiki: &Path, path: &Path) -> bool {
+    let active = REMOTE_WRITES.lock().unwrap_or_else(|p| p.into_inner());
+    if !active.is_empty() && (active.contains(&path_key(path)) || active.contains(&path_key(wiki)))
+    {
+        return false;
+    }
+    drop(active);
     path.strip_prefix(wiki)
         .ok()
         .and_then(Path::to_str)
