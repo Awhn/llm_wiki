@@ -1,3 +1,4 @@
+import { HANGUL_EXTENSIONS } from "@/lib/file-types"
 import { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import { open } from "@tauri-apps/plugin-dialog"
 import { Plus, FileText, RefreshCw, BookOpen, Trash2, Folder, ChevronRight, ChevronDown, Link, ExternalLink, Search, X } from "lucide-react"
@@ -171,7 +172,7 @@ export function SourcesView() {
         {
           name: "Documents",
           extensions: [
-            "md", "mdx", "txt", "org", "rtf", "pdf",
+            "md", "mdx", "txt", "org", ...HANGUL_EXTENSIONS, "rtf", "pdf",
             "html", "htm", "xml",
             "doc", "docx", "docm", "xls", "xlsx", "xlsm", "xlsb",
             "ppt", "pps", "pot", "pptx", "pptm", "ppsx", "ppsm",

@@ -1,0 +1,16 @@
+rhwp 0.9.0 (Windows x86_64)
+https://github.com/edwardkim/rhwp/releases/tag/v0.9.0
+Upstream release archive: rhwp-v0.9.0-windows-x86_64.zip
+Archive SHA-256: 72a0c7122a07c46bd67872688057f99ff60c5240333c72ca8b4c5c5b6884ef6f
+rhwp.exe is the unmodified release binary. Its MIT license is in
+LICENSE-rhwp.txt. The complete upstream notices directory, including
+third-party and embedded font licenses, is in rhwp-notices.zip.
+
+Microsoft Visual C++ 2015–2022 runtime (x64)
+msvcp140.dll, vcruntime140.dll, vcruntime140_1.dll
+Copyright Microsoft Corporation. All rights reserved.
+Distributed as app-local Visual C++ runtime files for rhwp.exe.
+https://learn.microsoft.com/en-us/visualstudio/releases/2022/redistribution
+Original package: Microsoft.VC.14.44.17.14.CRT.Redist.X64.base.vsix
+Package SHA-256: 4aaf54db0bfc9435f7c3660e1a00237a4b556042bfeea64bde44c2e0194e6ee5
+Package path: Contents/VC/Redist/MSVC/14.44.35112/x64/Microsoft.VC143.CRT/

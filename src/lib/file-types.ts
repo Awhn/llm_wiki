@@ -1,3 +1,5 @@
+export const HANGUL_EXTENSIONS: readonly string[] = __WINDOWS_X64__ ? ["hwp", "hwpx"] : []
+
 export type FileCategory =
   | "markdown"
   | "text"
@@ -102,6 +104,8 @@ const EXT_MAP: Record<string, FileCategory> = {
   pdf: "pdf",
 
   // Documents. Some are previewable through backend text extraction.
+  hwp: "document",
+  hwpx: "document",
   doc: "document",
   docx: "document",
   docm: "document",
@@ -150,6 +154,7 @@ export function isTextReadable(category: FileCategory): boolean {
 }
 
 export const EXTRACTED_TEXT_PREVIEW_EXTENSIONS = new Set([
+  ...HANGUL_EXTENSIONS,
   "pdf",
   "doc",
   "docx",

@@ -2586,6 +2586,8 @@ pub fn search_sources(
                 | "odp"
                 | "rtf"
                 | "epub"
+                | "hwp"
+                | "hwpx"
                 | "mobi"
         ) {
             let Some(content) = crate::commands::fs::read_preprocessed_cache(entry.path()) else {

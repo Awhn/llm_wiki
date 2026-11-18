@@ -335,6 +335,7 @@ LLM Wiki는 문서를 자동으로 정리되고 서로 연결된 지식 베이�
 | DOCX | docx-rs — headings, bold/italic, lists, tables → 구조화된 Markdown |
 | PPTX | ZIP + XML — slide-by-slide extraction with heading/list structure |
 | XLSX/XLS/ODS | calamine — proper cell types, multi-sheet support, Markdown tables |
+| HWP/HWPX (Windows x64) | **Sources → 문서 가져오기**에서 한글 파일을 선택하면 내장 rhwp가 제목, 본문, 표를 Markdown으로 추출합니다. 파서는 오프라인으로 실행되며 별도 설치가 필요 없습니다. |
 | EPUB/MOBI | 전자책 메타데이터, 장, 본문을 추출해 인제스트 가능한 콘텐츠로 변환 |
 | Images | Native preview(png, jpg, gif, webp, svg 등) |
 | Video/Audio | 내장 player |

@@ -566,8 +566,7 @@ pub fn run() {
         // from Rust, never the webview.
         .plugin(tauri_plugin_http::init())
         .setup(|app| {
-            // Let the PDF extractor find the bundled pdfium dynamic
-            // library via Tauri's platform-correct resource path.
+            // Locate bundled document parsers through Tauri’s resource directory.
             if let Ok(dir) = app.path().resource_dir() {
                 commands::fs::set_resource_dir_hint(dir);
             }

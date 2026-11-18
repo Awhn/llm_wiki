@@ -91,6 +91,7 @@ pub async fn read_file(path: String, extract_images: Option<bool>) -> Result<Str
 
             match ext.as_str() {
                 "pdf" => extract_pdf_text(&path, include_images),
+                "hwp" | "hwpx" => extract_hangul(p),
                 "org" => extract_org_text(&path),
                 e if OFFICE_EXTS.contains(&e) => extract_office_text(&path, e),
                 e if EBOOK_EXTS.contains(&e) => crate::commands::ebook::extract_ebook_text(&path, e),
@@ -144,6 +145,7 @@ pub async fn preprocess_file(path: String) -> Result<String, String> {
 
             let text = match ext.as_str() {
                 "pdf" => extract_pdf_text(&path, false)?,
+                "hwp" | "hwpx" => extract_hangul(p)?,
                 "org" => extract_org_text(&path)?,
                 e if OFFICE_EXTS.contains(&e) => extract_office_text(&path, e)?,
                 e if EBOOK_EXTS.contains(&e) => {
@@ -172,26 +174,32 @@ fn cache_format_path_for(original: &Path) -> std::path::PathBuf {
     cache_path.with_extension("txt.parser")
 }
 
-fn uses_anydoc_cache(original: &Path) -> bool {
-    original
-        .extension()
-        .and_then(|extension| extension.to_str())
-        .map(|extension| {
-            let extension = extension.to_ascii_lowercase();
-            OFFICE_EXTS.contains(&extension.as_str())
-        })
-        .unwrap_or(false)
+fn extract_hangul(path: &Path) -> Result<String, String> {
+    tauri::async_runtime::block_on(super::rhwp::extract(
+        RESOURCE_DIR_HINT.get().map(|dir| dir.as_path()),
+        path,
+    ))
+}
+
+fn cache_format_for(original: &Path) -> Option<&'static str> {
+    let extension = original.extension()?.to_str()?.to_ascii_lowercase();
+    match extension.as_str() {
+        "hwp" | "hwpx" => Some("rhwp-0.9.0-llm-v1"),
+        ext if OFFICE_EXTS.contains(&ext) => Some(OFFICE_CACHE_FORMAT),
+        _ => None,
+    }
 }
 
 fn read_cache(original: &Path) -> Option<String> {
     let cache_path = cache_path_for(original);
-    if uses_anydoc_cache(original)
-        && fs::read_to_string(cache_format_path_for(original))
+    if let Some(format) = cache_format_for(original) {
+        if fs::read_to_string(cache_format_path_for(original))
             .ok()?
             .trim()
-            != OFFICE_CACHE_FORMAT
-    {
-        return None;
+            != format
+        {
+            return None;
+        }
     }
     let original_modified = fs::metadata(original).ok()?.modified().ok()?;
     let cache_modified = fs::metadata(&cache_path).ok()?.modified().ok()?;
@@ -220,15 +228,16 @@ fn write_cache(original: &Path, text: &str) -> Result<(), String> {
     }
     crate::commands::file_sync::mark_app_write_path(&cache_path);
     let format_path = cache_format_path_for(original);
-    if uses_anydoc_cache(original) {
+    let format = cache_format_for(original);
+    if format.is_some() {
         // Remove the validity marker before replacing content. A crash or I/O
         // error can then cause an extra rebuild, never acceptance of stale text.
         let _ = fs::remove_file(&format_path);
     }
     fs::write(&cache_path, text).map_err(|e| format!("Failed to write cache: {e}"))?;
-    if uses_anydoc_cache(original) {
+    if let Some(format) = format {
         crate::commands::file_sync::mark_app_write_path(&format_path);
-        fs::write(&format_path, OFFICE_CACHE_FORMAT)
+        fs::write(&format_path, format)
             .map_err(|e| format!("Failed to write preprocessing cache format marker: {e}"))?;
     }
     Ok(())
@@ -395,10 +404,7 @@ pub(crate) fn lock_pdfium() -> std::sync::MutexGuard<'static, ()> {
         .unwrap_or_else(|poisoned| poisoned.into_inner())
 }
 
-/// Additional resource directory hint, set by the Tauri setup() callback
-/// once the AppHandle is available. Lets the pdfium resolver find the
-/// bundled dylib without re-implementing Tauri's platform-specific
-/// resource-dir logic.
+/// Tauri resource directory for the bundled PDFium library and rhwp executable.
 static RESOURCE_DIR_HINT: std::sync::OnceLock<std::path::PathBuf> = std::sync::OnceLock::new();
 
 /// Called from Tauri's setup() with the resolved resource directory.

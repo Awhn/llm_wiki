@@ -348,6 +348,9 @@ function isAgentWorkspacePath(filePath: string): boolean {
 
 function extractedTextLabel(filePath: string): string {
   switch (getFileExtension(filePath)) {
+    case "hwp":
+    case "hwpx":
+      return "한글 (rhwp)"
     case "doc":
       return "Word DOC (extracted text)"
     case "docx":

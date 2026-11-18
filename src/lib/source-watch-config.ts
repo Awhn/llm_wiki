@@ -1,14 +1,18 @@
+import { HANGUL_EXTENSIONS } from "@/lib/file-types"
 import type { SourceWatchConfig } from "@/stores/wiki-store"
 import { normalizePath } from "@/lib/path-utils"
 import { clampUserConcurrency } from "@/lib/concurrency-limits"
 import sourceWatchDefaults from "@/lib/source-watch-defaults.json"
 
-export const DEFAULT_SOURCE_WATCH_CONFIG: SourceWatchConfig = sourceWatchDefaults
+export const DEFAULT_SOURCE_WATCH_CONFIG: SourceWatchConfig = {
+  ...sourceWatchDefaults,
+  includeExtensions: [...sourceWatchDefaults.includeExtensions, ...HANGUL_EXTENSIONS],
+}
 
 export const SOURCE_WATCH_FILE_TYPE_GROUPS = [
   {
     id: "documents",
-    extensions: ["md", "mdx", "txt", "org", "pdf", "doc", "docx", "docm", "odt", "rtf", "epub", "mobi"],
+    extensions: ["md", "mdx", "txt", "org", "pdf", "doc", "docx", "docm", "odt", "rtf", "epub", "mobi", ...HANGUL_EXTENSIONS],
   },
   {
     id: "presentations",
@@ -65,8 +69,9 @@ export function normalizeSourceWatchConfig(config?: Partial<SourceWatchConfig> |
   const includeExtensions = normalizeExtensions(
     config?.includeExtensions ?? DEFAULT_SOURCE_WATCH_CONFIG.includeExtensions,
   )
-  const usesLegacyDefaults = includeExtensions.length === LEGACY_DEFAULT_INCLUDE_EXTENSIONS.length
-    && LEGACY_DEFAULT_INCLUDE_EXTENSIONS.every((extension) => includeExtensions.includes(extension))
+  const usesLegacyDefaults = [LEGACY_DEFAULT_INCLUDE_EXTENSIONS, sourceWatchDefaults.includeExtensions]
+    .some((defaults) => defaults.length === includeExtensions.length
+      && defaults.every((extension) => includeExtensions.includes(extension)))
   return {
     enabled: config?.enabled ?? DEFAULT_SOURCE_WATCH_CONFIG.enabled,
     autoIngest: config?.autoIngest ?? DEFAULT_SOURCE_WATCH_CONFIG.autoIngest,
@@ -75,7 +80,7 @@ export function normalizeSourceWatchConfig(config?: Partial<SourceWatchConfig> |
     parsingConcurrency,
     ingestConcurrency,
     includeExtensions: usesLegacyDefaults
-      ? [...includeExtensions, ...SOURCE_IMAGE_EXTENSIONS]
+      ? [...DEFAULT_SOURCE_WATCH_CONFIG.includeExtensions]
       : includeExtensions,
     excludeExtensions: normalizeExtensions(config?.excludeExtensions ?? DEFAULT_SOURCE_WATCH_CONFIG.excludeExtensions),
     excludeDirs: normalizeList(config?.excludeDirs ?? DEFAULT_SOURCE_WATCH_CONFIG.excludeDirs),

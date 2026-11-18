@@ -19,6 +19,8 @@ export default defineConfig(async () => ({
   },
 
   define: {
+    __WINDOWS_X64__: ["windows", "win32"].includes(process.env.TAURI_ENV_PLATFORM ?? process.platform)
+      && ["x86_64", "x64"].includes(process.env.TAURI_ENV_ARCH ?? process.arch),
     __APP_VERSION__: JSON.stringify(pkgJson.version),
   },
 

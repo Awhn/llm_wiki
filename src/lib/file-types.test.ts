@@ -7,6 +7,11 @@ import {
 } from "@/lib/file-types"
 
 describe("file types", () => {
+  it.each(["회의록.HWP", "회의록.hwpx"])("routes %s to extracted text on Windows x64", (name) => {
+    expect(getFileCategory(name)).toBe("document")
+    expect(isExtractedTextPreviewFile(name)).toBe(__WINDOWS_X64__)
+  })
+
   it("recognizes backend-extracted document previews", () => {
     expect(isExtractedTextPreviewFile("/project/raw/sources/report.doc")).toBe(true)
     expect(isExtractedTextPreviewFile("/project/raw/sources/report.docx")).toBe(true)

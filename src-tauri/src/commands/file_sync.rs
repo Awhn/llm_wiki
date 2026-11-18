@@ -138,8 +138,14 @@ pub struct SourceWatchConfig {
 
 impl Default for SourceWatchConfig {
     fn default() -> Self {
-        serde_json::from_str(DEFAULT_SOURCE_WATCH_CONFIG_JSON)
-            .expect("source-watch-defaults.json must match SourceWatchConfig")
+        let mut config: Self = serde_json::from_str(DEFAULT_SOURCE_WATCH_CONFIG_JSON)
+            .expect("source-watch-defaults.json must match SourceWatchConfig");
+        if cfg!(all(windows, target_arch = "x86_64")) {
+            config
+                .include_extensions
+                .extend(["hwp".into(), "hwpx".into()]);
+        }
+        config
     }
 }
 

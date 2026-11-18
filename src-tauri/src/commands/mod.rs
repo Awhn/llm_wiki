@@ -11,5 +11,6 @@ pub mod git_sync;
 pub mod page_embedding;
 pub mod project;
 pub mod project_maintenance;
+mod rhwp;
 pub mod search;
 pub mod vectorstore;
