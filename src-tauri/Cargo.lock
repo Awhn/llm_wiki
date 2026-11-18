@@ -4753,7 +4753,7 @@ checksum = "11d3d7f243d5c5a8b9bb5d6dd2b1602c0cb0b9db1621bafc7ed66e35ff9fe092"
 
 [[package]]
 name = "llm-wiki"
-version = "0.6.13"
+version = "0.6.14"
 dependencies = [
  "anydoc",
  "arrow-array",
@@ -4797,8 +4797,10 @@ name = "llm-wiki-sync"
 version = "0.1.0"
 dependencies = [
  "fs4",
+ "renamore",
  "serde",
  "serde_json",
+ "tempfile",
  "url",
  "uuid",
  "walkdir",
@@ -6516,6 +6518,16 @@ name = "regex-syntax"
 version = "0.8.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dc897dd8d9e8bd1ed8cdad82b5966c3e0ecae09fb1907d58efaa013543185d0a"
+
+[[package]]
+name = "renamore"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0f5bced8a18df26d088a61a8f314d853ad18705b0aee59b43ccc088ca4bc3670"
+dependencies = [
+ "cc",
+ "tempfile",
+]
 
 [[package]]
 name = "reqwest"

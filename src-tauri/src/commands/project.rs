@@ -26,24 +26,23 @@ fn create_project_impl(name: String, path: String, korean: bool) -> Result<WikiP
         return Err(format!("Directory already exists: '{}'", root.display()));
     }
 
-    // Create all required subdirectories
-    let dirs = [
-        "raw/sources",
-        "raw/assets",
-        "wiki/entities",
-        "wiki/concepts",
-        "wiki/sources",
-        "wiki/queries",
-        "wiki/comparisons",
-        "wiki/synthesis",
-    ];
-    for dir in &dirs {
-        fs::create_dir_all(root.join(dir))
-            .map_err(|e| format!("Failed to create directory '{}': {}", dir, e))?;
+    if let Some(parent) = root.parent() {
+        fs::create_dir_all(parent).map_err(|e| e.to_string())?;
     }
+    fs::create_dir(&root).map_err(|e| e.to_string())?;
+    initialize_local_project(&root)?;
+    seed_wiki(&root, korean)?;
+    Ok(WikiProject {
+        name,
+        // Forward slashes for cross-platform consistency in the TS layer.
+        path: root.to_string_lossy().replace('\\', "/"),
+    })
+}
 
-    let today = Local::now().format("%Y-%m-%d").to_string();
-
+pub(super) fn initialize_local_project(root: &Path) -> Result<(), String> {
+    for dir in ["raw/sources", "raw/assets", "wiki"] {
+        fs::create_dir_all(root.join(dir)).map_err(|e| e.to_string())?;
+    }
     // schema.md
     let schema_content = format!(
         r#"# Wiki Schema
@@ -157,6 +156,62 @@ When sources contradict each other:
 "#;
     write_file_inner(root.join("purpose.md"), purpose_content)?;
 
+    // .obsidian config for Obsidian compatibility
+    fs::create_dir_all(root.join(".obsidian"))
+        .map_err(|e| format!("Failed to create .obsidian: {}", e))?;
+
+    // Obsidian app config: set attachment folder, exclude hidden dirs
+    let obsidian_app_config = r#"{
+  "attachmentFolderPath": "raw/assets",
+  "userIgnoreFilters": [
+    ".cache",
+    ".llm-wiki",
+    ".superpowers"
+  ],
+  "useMarkdownLinks": false,
+  "newLinkFormat": "shortest",
+  "showUnsupportedFiles": false
+}"#;
+    write_file_inner(root.join(".obsidian/app.json"), obsidian_app_config)?;
+
+    // Obsidian appearance: dark mode
+    let obsidian_appearance = r#"{
+  "baseFontSize": 16,
+  "theme": "obsidian"
+}"#;
+    write_file_inner(root.join(".obsidian/appearance.json"), obsidian_appearance)?;
+
+    // Enable graph view and backlinks core plugins
+    let obsidian_core_plugins = r#"{
+  "file-explorer": true,
+  "global-search": true,
+  "graph": true,
+  "backlink": true,
+  "tag-pane": true,
+  "page-preview": true,
+  "outgoing-link": true,
+  "starred": true
+}"#;
+    write_file_inner(
+        root.join(".obsidian/core-plugins.json"),
+        obsidian_core_plugins,
+    )?;
+
+    Ok(())
+}
+
+fn seed_wiki(root: &Path, korean: bool) -> Result<(), String> {
+    for dir in [
+        "entities",
+        "concepts",
+        "sources",
+        "queries",
+        "comparisons",
+        "synthesis",
+    ] {
+        fs::create_dir_all(root.join("wiki").join(dir)).map_err(|e| e.to_string())?;
+    }
+    let today = Local::now().format("%Y-%m-%d").to_string();
     // wiki/index.md
     let index_content = if korean {
         "# 위키 색인\n\n## 개체\n\n## 개념\n\n## 자료\n\n## 질문\n\n## 비교\n\n## 종합\n"
@@ -211,52 +266,7 @@ related: []
     };
     write_file_inner(root.join("wiki/overview.md"), overview_content)?;
 
-    // .obsidian config for Obsidian compatibility
-    fs::create_dir_all(root.join(".obsidian"))
-        .map_err(|e| format!("Failed to create .obsidian: {}", e))?;
-
-    // Obsidian app config: set attachment folder, exclude hidden dirs
-    let obsidian_app_config = r#"{
-  "attachmentFolderPath": "raw/assets",
-  "userIgnoreFilters": [
-    ".cache",
-    ".llm-wiki",
-    ".superpowers"
-  ],
-  "useMarkdownLinks": false,
-  "newLinkFormat": "shortest",
-  "showUnsupportedFiles": false
-}"#;
-    write_file_inner(root.join(".obsidian/app.json"), obsidian_app_config)?;
-
-    // Obsidian appearance: dark mode
-    let obsidian_appearance = r#"{
-  "baseFontSize": 16,
-  "theme": "obsidian"
-}"#;
-    write_file_inner(root.join(".obsidian/appearance.json"), obsidian_appearance)?;
-
-    // Enable graph view and backlinks core plugins
-    let obsidian_core_plugins = r#"{
-  "file-explorer": true,
-  "global-search": true,
-  "graph": true,
-  "backlink": true,
-  "tag-pane": true,
-  "page-preview": true,
-  "outgoing-link": true,
-  "starred": true
-}"#;
-    write_file_inner(
-        root.join(".obsidian/core-plugins.json"),
-        obsidian_core_plugins,
-    )?;
-
-    Ok(WikiProject {
-        name,
-        // Forward slashes for cross-platform consistency in the TS layer.
-        path: root.to_string_lossy().replace('\\', "/"),
-    })
+    Ok(())
 }
 
 #[tauri::command]

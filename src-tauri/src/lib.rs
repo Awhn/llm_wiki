@@ -724,6 +724,7 @@ pub fn run() {
             commands::extract_images::extract_and_save_office_images_cmd,
             commands::git_sync::git_sync_managed,
             commands::git_sync::git_sync_status,
+            commands::git_sync::git_sync_join,
             commands::git_sync::git_sync_connect,
             commands::git_sync::git_sync_now,
             commands::git_sync::git_sync_embed_page,

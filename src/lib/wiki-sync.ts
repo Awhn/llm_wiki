@@ -126,8 +126,8 @@ export class WikiSyncSession {
     this.timer = setTimeout(() => this.auto(), 3000)
   }
   private auto() {
-    const { config, phase } = useWikiSync.getState()
-    if (!this.current() || !config?.enabled || Date.now() < this.retryAt ||
+    const { config, phase, userId } = useWikiSync.getState()
+    if (!this.current() || !userId || !config?.enabled || Date.now() < this.retryAt ||
       ["Conflict", "Authentication Error", "Error"].includes(phase)) return
     if (this.working) { this.followUp = true; return }
     void this.action("now")

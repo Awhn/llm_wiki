@@ -18,6 +18,7 @@ import { AppLayout } from "@/components/layout/app-layout"
 import i18n, { closeDialogLabels } from "@/i18n"
 import { stopWikiSync } from "@/lib/wiki-sync"
 import { WikiSyncMonitor } from "@/components/settings/sections/wiki-sync-section"
+import { JoinProjectDialog } from "@/components/project/join-project-dialog"
 import { WelcomeScreen } from "@/components/project/welcome-screen"
 import { CreateProjectDialog } from "@/components/project/create-project-dialog"
 import type { WikiProject } from "@/types/wiki"
@@ -36,6 +37,7 @@ function App() {
   const setActiveView = useWikiStore((s) => s.setActiveView)
   const zoomLevel = useZoomStore((s) => s.level)
   const [showCreateDialog, setShowCreateDialog] = useState(false)
+  const [showJoinDialog, setShowJoinDialog] = useState(false)
   const [loading, setLoading] = useState(true)
 
   function isCurrentProject(proj: WikiProject): boolean {
@@ -663,8 +665,10 @@ function App() {
         <WelcomeScreen
           onCreateProject={() => setShowCreateDialog(true)}
           onOpenProject={handleOpenProject}
+          onJoinProject={() => setShowJoinDialog(true)}
           onSelectProject={handleSelectRecent}
         />
+        {showJoinDialog && <JoinProjectDialog onClose={() => setShowJoinDialog(false)} onJoined={handleProjectOpened} />}
         <CreateProjectDialog
           open={showCreateDialog}
           onOpenChange={setShowCreateDialog}
