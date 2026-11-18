@@ -3,7 +3,8 @@ import ReactDOM from "react-dom/client";
 import App from "./App";
 import { WikiIdentityGate } from "@/components/settings/sections/wiki-sync-section";
 import "./index.css";
-import "@/i18n";
+import i18n from "@/i18n";
+import { loadLanguage } from "@/lib/project-store";
 import { loadAndApplyTheme, watchSystemTheme } from "@/lib/theme";
 import { AppDialogHost } from "@/components/app-dialog-host";
 
@@ -18,6 +19,10 @@ function applyPlatformClass() {
 async function initApp() {
   try {
     applyPlatformClass();
+    const savedLanguage = await loadLanguage().catch(() => null);
+    if (savedLanguage) await i18n.changeLanguage(savedLanguage);
+    document.documentElement.lang = i18n.resolvedLanguage ?? i18n.language;
+    i18n.on("languageChanged", language => { document.documentElement.lang = language; });
     await loadAndApplyTheme();
     watchSystemTheme();
 

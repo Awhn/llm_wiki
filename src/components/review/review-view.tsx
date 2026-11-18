@@ -21,6 +21,8 @@ import { refreshProjectFileTree } from "@/lib/project-file-tree-refresh"
 import { hasConfiguredDeepResearchSources } from "@/lib/web-search"
 import { makeQueryFileName } from "@/lib/wiki-filename"
 import { availableReviewPageFileName, createReviewPageDrafts } from "@/lib/review-create-page"
+import { getOutputLanguage } from "@/lib/output-language"
+import { insertWikiIndexEntry } from "@/lib/wiki-index-section"
 import { cleanAssistantContentForWikiSave, titleFromCleanAssistantContent } from "@/lib/chat-save-to-wiki"
 import { useTranslation } from "react-i18next"
 import { useAppDialog } from "@/stores/app-dialog-store"
@@ -124,6 +126,7 @@ export function ReviewView() {
         const content = decodeURIComponent(atob(encoded))
 
         const cleanContent = cleanAssistantContentForWikiSave(content)
+        const language = getOutputLanguage(cleanContent)
         const title = titleFromCleanAssistantContent(cleanContent)
         const { date, fileName } = makeQueryFileName(title)
         const filePath = `${pp}/wiki/queries/${fileName}`
@@ -135,21 +138,17 @@ export function ReviewView() {
         // Update index
         const indexPath = `${pp}/wiki/index.md`
         let indexContent = ""
-        try { indexContent = await readFile(indexPath) } catch { indexContent = "# Wiki Index\n" }
+        try { indexContent = await readFile(indexPath) } catch { indexContent = "" }
         const linkTarget = fileName.replace(/\.md$/, "")
         const entry = `- [[queries/${linkTarget}|${title}]]`
-        if (indexContent.includes("## Queries")) {
-          indexContent = indexContent.replace(/(## Queries\n)/, (match) => `${match}${entry}\n`)
-        } else {
-          indexContent = indexContent.trimEnd() + "\n\n## Queries\n" + entry + "\n"
-        }
+        indexContent = insertWikiIndexEntry(indexContent, "queries", entry, language)
         await writeFile(indexPath, indexContent)
 
         // Append log
         const logPath = `${pp}/wiki/log.md`
         let logContent = ""
-        try { logContent = await readFile(logPath) } catch { logContent = "# Wiki Log\n" }
-        await writeFile(logPath, logContent.trimEnd() + `\n- ${date}: Saved query page \`${fileName}\`\n`)
+        try { logContent = await readFile(logPath) } catch { logContent = language === "Korean" ? "# 위키 기록\n" : "# Wiki Log\n" }
+        await writeFile(logPath, logContent.trimEnd() + `\n- ${date}: ${language === "Korean" ? "질문 문서 저장" : "Saved query page"} \`${fileName}\`\n`)
 
         await refreshProjectFileTree(pp, {
           projectId: project.id,
@@ -267,29 +266,25 @@ export function ReviewView() {
             created.push({ title: draft.title, dir: draft.dir, fileName, filePath, pageContent, pageType: draft.pageType, date })
           }
 
+          const language = getOutputLanguage(item.description)
           // Update index
           const indexPath = `${pp}/wiki/index.md`
           let indexContent = ""
-          try { indexContent = await readFile(indexPath) } catch { indexContent = "# Wiki Index\n" }
+          try { indexContent = await readFile(indexPath) } catch { indexContent = "" }
           for (const createdPage of created) {
-            const sectionHeader = `## ${createdPage.dir.charAt(0).toUpperCase() + createdPage.dir.slice(1)}`
             const linkTarget = createdPage.fileName.replace(/\.md$/, "")
             const entry = `- [[${createdPage.dir}/${linkTarget}|${createdPage.title}]]`
-            if (indexContent.includes(sectionHeader)) {
-              indexContent = indexContent.replace(new RegExp(`(${sectionHeader}\n)`), (match) => `${match}${entry}\n`)
-            } else {
-              indexContent = indexContent.trimEnd() + `\n\n${sectionHeader}\n${entry}\n`
-            }
+            indexContent = insertWikiIndexEntry(indexContent, createdPage.dir, entry, language)
           }
           await writeFile(indexPath, indexContent)
 
           // Log
           const logPath = `${pp}/wiki/log.md`
           let logContent = ""
-          try { logContent = await readFile(logPath) } catch { logContent = "# Wiki Log\n" }
+          try { logContent = await readFile(logPath) } catch { logContent = language === "Korean" ? "# 위키 기록\n" : "# Wiki Log\n" }
           const createdNames = created.map((p) => `\`${p.fileName}\``).join(", ")
           const logDate = created[0]?.date ?? makeQueryFileName("review").date
-          await writeFile(logPath, logContent.trimEnd() + `\n- ${logDate}: Created ${created.length} page${created.length === 1 ? "" : "s"} from review: ${createdNames}\n`)
+          await writeFile(logPath, logContent.trimEnd() + `\n- ${logDate}: ${language === "Korean" ? `검토를 거쳐 문서 ${created.length}개 생성` : `Created ${created.length} page${created.length === 1 ? "" : "s"} from review`}: ${createdNames}\n`)
 
           await refreshProjectFileTree(pp, {
             projectId: project.id,
@@ -615,7 +610,7 @@ function ReviewCard({
               disabled={researchRunning || working}
               onClick={() => onResolve(item.id, opt.action)}
             >
-              {opt.label}
+              {opt.label === "Create Page" ? t("editor.pageLinks.create") : opt.label === "Skip" ? t("lint.skip") : opt.label}
             </Button>
           ))}
           </div>

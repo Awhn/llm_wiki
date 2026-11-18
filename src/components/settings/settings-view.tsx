@@ -51,6 +51,7 @@ import { ApiServerSection } from "./sections/api-server-section"
 import { GeneralSection } from "./sections/general-section"
 import { ChangelogSection } from "./sections/changelog-section"
 import { MaintenanceSection } from "./sections/maintenance-section"
+import { closeDialogLabels } from "@/i18n"
 import { WikiSyncSection } from "./sections/wiki-sync-section"
 import { useWikiSync } from "@/lib/wiki-sync"
 import { AboutSection } from "./sections/about-section"
@@ -89,7 +90,7 @@ const CATEGORIES: Category[] = [
   { id: "multimodal", labelKey: "settings.categories.multimodal", icon: ImageIcon },
   { id: "web-search", labelKey: "settings.categories.webSearch", icon: Globe },
   { id: "network", labelKey: "settings.categories.network", icon: Network },
-  { id: "wiki-sync", labelKey: "Wiki Sync", icon: FolderSync },
+  { id: "wiki-sync", labelKey: "wikiSync.title", icon: FolderSync },
   { id: "source-watch", labelKey: "settings.categories.sourceWatch", icon: FolderSync },
   { id: "scheduled-import", labelKey: "settings.categories.scheduledImport", icon: Clock },
   { id: "mineru", labelKey: "settings.categories.mineru", icon: FileText },
@@ -555,7 +556,7 @@ export function SettingsView() {
         console.warn("[general] failed to update autostart:", err)
       }
       try {
-        await invoke<string>("set_close_behavior", { value: newGeneralConfig.closeBehavior })
+        await invoke<string>("set_close_behavior", { value: newGeneralConfig.closeBehavior, labels: closeDialogLabels(draft.uiLanguage) })
       } catch (err) {
         console.warn("[general] failed to update close behavior:", err)
       }

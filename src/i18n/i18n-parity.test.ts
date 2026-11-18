@@ -15,6 +15,7 @@ import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { readFileSync, readdirSync } from "node:fs"
 import en from "./en.json"
+import i18n, { closeDialogLabels } from "./index"
 
 /** Flattens a nested translation object to "a.b.c" dot-path keys. */
 function flattenKeys(obj: unknown, prefix = ""): string[] {
@@ -57,6 +58,16 @@ describe("i18n bundle parity", () => {
         JSON.parse(readFileSync(join(i18nDir, fileName), "utf8")) as unknown,
       ]),
   )
+
+  it("renders Korean popover and native dialog labels without raw interpolation syntax", () => {
+    const t = i18n.getFixedT("ko-KR")
+    expect(t("research.activeBadge", { running: 1 })).toBe("진행 중 1건")
+    expect(t("research.activeBadgeQueued", { running: 1, queued: 2 })).toBe("진행 중 1건 · 대기 2건")
+    expect(t("chat.skillSources.project")).toBe("프로젝트")
+    expect(t("wikiSync.phase.Authentication Error")).toBe("인증 오류")
+    expect(closeDialogLabels("ko").hide).toBe("창 숨기기")
+    expect(closeDialogLabels("en").quit).toBe("Quit")
+  })
 
   it("does not contain duplicate top-level JSON keys", () => {
     const findDuplicates = (fileName: string) => {

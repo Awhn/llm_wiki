@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react"
 import { BrainCircuit, ChevronDown, FileSearch, FileText, Globe2, ImagePlus, Send, Sparkles, Square, X } from "lucide-react"
+import { Popover } from "@base-ui/react/popover"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
@@ -253,7 +254,6 @@ export function ChatInput({
     const onPointerDown = (event: PointerEvent) => {
       const frame = inputFrameRef.current
       if (!frame || frame.contains(event.target as Node)) return
-      setShowSkills(false)
       if (slashSkillKey) setDismissedSlashKey(slashSkillKey)
       if (contextFileKey) setDismissedContextKey(contextFileKey)
     }
@@ -615,7 +615,7 @@ export function ChatInput({
             onSelect={handleSelect}
             onKeyDown={handleKeyDown}
             onPaste={handlePaste}
-            placeholder={placeholder ?? "Type a message... (Enter to send, Shift+Enter for newline)"}
+            placeholder={placeholder ?? t("chat.placeholder")}
             disabled={isStreaming}
             rows={1}
             className="min-w-[12rem] flex-1 resize-none border-0 bg-transparent px-1 py-2 text-sm leading-6 placeholder:text-muted-foreground focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
@@ -635,10 +635,8 @@ export function ChatInput({
                   <button
                     key={`${skill.source}:${skill.id}`}
                     type="button"
-                    onMouseDown={(event) => {
-                      event.preventDefault()
-                      applySlashSkill(skill)
-                    }}
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => applySlashSkill(skill)}
                     className={`flex w-full items-start gap-2 rounded px-2 py-1.5 text-left text-xs transition-colors ${
                       active ? "bg-accent text-foreground" : "hover:bg-accent/60"
                     }`}
@@ -669,10 +667,8 @@ export function ChatInput({
                 <button
                   key={path}
                   type="button"
-                  onMouseDown={(event) => {
-                    event.preventDefault()
-                    applyContextFile(path)
-                  }}
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => applyContextFile(path)}
                   className={`flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs ${index === contextFileIndex ? "bg-accent" : "hover:bg-accent/60"}`}
                 >
                   <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
@@ -751,11 +747,9 @@ export function ChatInput({
                 )}
               </Tooltip>
             </TooltipProvider>
-            <div className="relative">
-              <button
+            <Popover.Root open={showSkills && availableSkills.length > 0 && !isStreaming} onOpenChange={setShowSkills}>
+              <Popover.Trigger
                 type="button"
-                aria-expanded={showSkills}
-                onClick={() => setShowSkills((open) => !open)}
                 disabled={isStreaming || availableSkills.length === 0}
                 className={searchToggleClass(selectedSkills.length > 0)}
                 title={availableSkills.length === 0 ? t("chat.noSkillsAvailable") : t("chat.skills")}
@@ -767,50 +761,53 @@ export function ChatInput({
                     {selectedSkills.length}
                   </span>
                 )}
-              </button>
-              {showSkills && availableSkills.length > 0 && (
-                <div className="absolute bottom-full left-0 z-20 mb-2 w-72 rounded-md border border-border bg-popover p-2 text-popover-foreground shadow-lg">
-                  <div className="mb-1 px-1 text-xs font-medium text-muted-foreground">
-                    {t("chat.enabledSkills")}
-                    {selectedSkills.length === 0 && (
-                      <span className="ml-1 font-normal text-muted-foreground">
-                        {t("chat.skillsAutoMode", { defaultValue: "Auto" })}
-                      </span>
-                    )}
-                  </div>
-                  <div className="max-h-56 overflow-y-auto">
-                    {availableSkills.map((skill) => {
-                      const active = selectedSkills.includes(skill.id)
-                      return (
-                        <button
-                          key={`${skill.source}:${skill.id}`}
-                          type="button"
-                          onClick={() => toggleSkill(skill.id)}
-                          className={`mb-1 flex w-full items-start gap-2 rounded px-2 py-1.5 text-left text-xs transition-colors ${
-                            active ? "bg-accent text-foreground" : "hover:bg-accent/60"
-                          }`}
-                        >
-                          <span
-                            className={`mt-1 h-1.5 w-1.5 shrink-0 rounded-full ${
-                              active ? "bg-emerald-500" : "bg-muted-foreground/30"
+              </Popover.Trigger>
+              <Popover.Portal>
+                <Popover.Positioner side="top" align="start" sideOffset={8} className="z-50">
+                  <Popover.Popup aria-label={t("chat.skills")} className="w-72 max-w-[var(--available-width)] max-h-[var(--available-height)] overflow-auto rounded-md border border-border bg-popover p-2 text-popover-foreground shadow-lg">
+                    <div className="mb-1 px-1 text-xs font-medium text-muted-foreground">
+                      {t("chat.enabledSkills")}
+                      {selectedSkills.length === 0 && (
+                        <span className="ml-1 font-normal text-muted-foreground">
+                          {t("chat.skillsAutoMode", { defaultValue: "Auto" })}
+                        </span>
+                      )}
+                    </div>
+                    <div className="max-h-56 overflow-y-auto">
+                      {availableSkills.map((skill) => {
+                        const active = selectedSkills.includes(skill.id)
+                        return (
+                          <button
+                            key={`${skill.source}:${skill.id}`}
+                            type="button"
+                            aria-pressed={active}
+                            onClick={() => toggleSkill(skill.id)}
+                            className={`mb-1 flex w-full items-start gap-2 rounded px-2 py-1.5 text-left text-xs transition-colors ${
+                              active ? "bg-accent text-foreground" : "hover:bg-accent/60"
                             }`}
-                          />
-                          <span className="min-w-0 flex-1">
-                            <span className="block truncate font-medium">{skill.name}</span>
-                            <span className="block truncate text-muted-foreground">
-                              {skill.description || skillSourceLabel(skill.source)}
+                          >
+                            <span
+                              className={`mt-1 h-1.5 w-1.5 shrink-0 rounded-full ${
+                                active ? "bg-emerald-500" : "bg-muted-foreground/30"
+                              }`}
+                            />
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate font-medium">{skill.name}</span>
+                              <span className="block truncate text-muted-foreground">
+                                {skill.description || skillSourceLabel(skill.source)}
+                              </span>
                             </span>
-                          </span>
-                          <span className="shrink-0 text-[10px] uppercase text-muted-foreground">
-                            {skillSourceLabel(skill.source)}
-                          </span>
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
-              )}
-            </div>
+                            <span className="shrink-0 text-[10px] uppercase text-muted-foreground">
+                              {skillSourceLabel(skill.source)}
+                            </span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </Popover.Popup>
+                </Popover.Positioner>
+              </Popover.Portal>
+            </Popover.Root>
             <label
               className="relative inline-flex h-7 items-center rounded-md border border-border/70 bg-muted/30 text-xs font-medium text-foreground transition-colors hover:bg-accent/60 focus-within:border-ring/60 focus-within:ring-1 focus-within:ring-ring/30"
               title={t("chat.retrievalModeHint")}

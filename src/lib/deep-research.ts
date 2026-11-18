@@ -6,7 +6,7 @@ import { fileExists, writeFile, readFile } from "@/commands/fs"
 import { useWikiStore, type LlmConfig, type SearchApiConfig } from "@/stores/wiki-store"
 import { useResearchStore } from "@/stores/research-store"
 import { normalizePath } from "@/lib/path-utils"
-import { buildLanguageDirective } from "@/lib/output-language"
+import { buildLanguageDirective, getOutputLanguage } from "@/lib/output-language"
 import { makeQueryFileName } from "@/lib/wiki-filename"
 import { refreshProjectFileTree } from "@/lib/project-file-tree-refresh"
 import { useReviewStore } from "@/stores/review-store"
@@ -30,21 +30,23 @@ export function buildResearchPageContent(
   synthesis: string,
   references: string,
 ): string {
+  const korean = getOutputLanguage(topic) === "Korean"
   const displayTopic = topic.replace(/\s+/g, " ").trim()
+  const title = `${korean ? "조사" : "Research"}: ${displayTopic}`
   return normalizeMalformedWikilinks(stripBodyWikilinkPathPrefixes([
     "---",
     "type: query",
-    `title: ${JSON.stringify(`Research: ${displayTopic}`)}`,
+    `title: ${JSON.stringify(title)}`,
     `created: ${date}`,
     "origin: deep-research",
-    "tags: [research]",
+    korean ? "tags: [조사]" : "tags: [research]",
     "---",
     "",
-    `# Research: ${displayTopic}`,
+    `# ${title}`,
     "",
     synthesis,
     "",
-    "## References",
+    korean ? "## 참고 자료" : "## References",
     "",
     references,
     "",

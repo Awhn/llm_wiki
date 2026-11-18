@@ -248,8 +248,9 @@ export async function readFileAsBase64(path: string): Promise<FileBase64> {
 export async function createProject(
   name: string,
   path: string,
+  outputLanguage?: string,
 ): Promise<WikiProject> {
-  const raw = await invoke<RawProject>("create_project", { name, path })
+  const raw = await invoke<RawProject>("create_project", { name, path, outputLanguage })
   const id = await ensureProjectId(raw.path)
   await upsertProjectInfo(id, raw.path, raw.name)
   return { id, name: raw.name, path: raw.path }

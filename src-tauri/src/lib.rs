@@ -16,7 +16,34 @@ use std::sync::Mutex;
 use tauri::{Emitter, Manager};
 use uuid::Uuid;
 
-struct CloseBehaviorState(Mutex<String>);
+#[derive(Clone, Deserialize)]
+struct CloseDialogLabels {
+    message: String,
+    quit: String,
+    hide: String,
+}
+
+#[derive(Clone)]
+struct ClosePreferences {
+    behavior: String,
+    labels: CloseDialogLabels,
+}
+
+impl Default for ClosePreferences {
+    fn default() -> Self {
+        Self {
+            behavior: "minimize".into(),
+            labels: CloseDialogLabels {
+                message: "Quit LLM Wiki? Hide the window to keep background tasks running.".into(),
+                quit: "Quit".into(),
+                hide: "Hide window".into(),
+            },
+        }
+    }
+}
+
+#[derive(Default)]
+struct CloseBehaviorState(Mutex<ClosePreferences>);
 struct TrayAvailabilityState(Mutex<bool>);
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -516,6 +543,7 @@ fn set_proxy_env(config: proxy::ProxyConfig) -> String {
 #[tauri::command]
 fn set_close_behavior(
     value: String,
+    labels: Option<CloseDialogLabels>,
     state: tauri::State<'_, CloseBehaviorState>,
 ) -> Result<String, String> {
     let normalized = match value.as_str() {
@@ -526,17 +554,20 @@ fn set_close_behavior(
         .0
         .lock()
         .map_err(|_| "Close behavior state is unavailable".to_string())?;
-    *guard = normalized.clone();
+    guard.behavior = normalized.clone();
+    if let Some(labels) = labels {
+        guard.labels = labels;
+    }
     Ok(normalized)
 }
 
-fn close_behavior<R: tauri::Runtime>(window: &tauri::Window<R>) -> String {
+fn close_preferences<R: tauri::Runtime>(window: &tauri::Window<R>) -> ClosePreferences {
     window
         .state::<CloseBehaviorState>()
         .0
         .lock()
         .map(|value| value.clone())
-        .unwrap_or_else(|_| "minimize".to_string())
+        .unwrap_or_default()
 }
 
 fn tray_available<R: tauri::Runtime>(window: &tauri::Window<R>) -> bool {
@@ -598,7 +629,7 @@ pub fn run() {
             app.manage(commands::file_sync::FileSyncState::default());
             app.manage(agent::session::AgentSessionStore::default());
             app.manage(agent::cancel::AgentCancellationRegistry::default());
-            app.manage(CloseBehaviorState(Mutex::new("minimize".to_string())));
+            app.manage(CloseBehaviorState::default());
             app.manage(TrayAvailabilityState(Mutex::new(false)));
             // Start the API before optional desktop integrations so the
             // backend is reachable if tray setup or another integration fails.
@@ -714,10 +745,10 @@ pub fn run() {
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                 api.prevent_close();
-                let behavior = close_behavior(window);
+                let preferences = close_preferences(window);
                 let win = window.clone();
                 let app = window.app_handle().clone();
-                match behavior.as_str() {
+                match preferences.behavior.as_str() {
                     "exit" => {
                         tauri::async_runtime::spawn(async move {
                             let _ = win.destroy();
@@ -736,13 +767,11 @@ pub fn run() {
                             use tauri_plugin_dialog::{DialogExt, MessageDialogButtons};
                             let confirmed = app
                                 .dialog()
-                                .message(
-                                    "Quit LLM Wiki? Choose Quit to exit. Choose Hide Window to keep background features running.",
-                                )
+                                .message(preferences.labels.message)
                                 .title("LLM Wiki")
                                 .buttons(MessageDialogButtons::OkCancelCustom(
-                                    "Quit".to_string(),
-                                    "Hide Window".to_string(),
+                                    preferences.labels.quit,
+                                    preferences.labels.hide,
                                 ))
                                 .kind(tauri_plugin_dialog::MessageDialogKind::Warning)
                                 .blocking_show();
@@ -750,8 +779,10 @@ pub fn run() {
                             if confirmed {
                                 let _ = win.destroy();
                                 app.exit(0);
-                            } else {
+                            } else if tray_available(&win) {
                                 let _ = win.hide();
+                            } else {
+                                let _ = win.minimize();
                             }
                         });
                     }

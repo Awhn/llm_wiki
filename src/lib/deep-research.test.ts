@@ -66,6 +66,13 @@ describe("makeDeepResearchFileName", () => {
 })
 
 describe("buildResearchPageContent", () => {
+  it("writes Korean section labels around original citations", () => {
+    const citation = "[PostgreSQL Documentation](https://www.postgresql.org/docs/)"
+    const content = buildResearchPageContent("데이터 보관 기간", "2026-01-01", "보관 기준 [1]", citation)
+    expect(content).toContain("# 조사: 데이터 보관 기간")
+    expect(content).toContain("## 참고 자료\n\n" + citation)
+    expect(content).toContain("type: query")
+  })
   it("normalizes path-prefixed page links without changing code or embeds", () => {
     const content = buildResearchPageContent(
       "AI research",

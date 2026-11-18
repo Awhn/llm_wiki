@@ -145,9 +145,9 @@ export class WikiSyncSession {
         const ok = await refreshGitPages(this.project, changes, this.current)
         if (!this.current()) return
         if (ok) await this.call("acknowledge", { token: changes.token })
-        if (this.current()) useWikiSync.setState({ indexMessage: ok ? "" : "Search indexing pending. Check the local embedding model." })
+        if (this.current()) useWikiSync.setState({ indexMessage: ok ? "" : "wikiSync.indexPending" })
       })().catch(() => {
-        if (this.current()) useWikiSync.setState({ indexMessage: "Search indexing pending. Retry after checking the local model." })
+        if (this.current()) useWikiSync.setState({ indexMessage: "wikiSync.indexPending" })
       }).finally(() => { this.indexing = false })
     }
   }
@@ -155,7 +155,7 @@ export class WikiSyncSession {
     if (this.working || !this.current()) return
     const { editing, userId } = useWikiSync.getState()
     if (editing && (name === "now" || name === "connect")) {
-      useWikiSync.setState({ detail: "Sync will resume when you finish editing." })
+      useWikiSync.setState({ detail: "wikiSync.waitForEdit" })
       return
     }
     this.working = true

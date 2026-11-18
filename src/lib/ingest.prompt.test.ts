@@ -13,7 +13,10 @@ import {
   formatIngestWarningLogEntry,
   splitSourceIntoSemanticChunks,
   updateBoundedOverviewRecentSection,
+  updateBoundedRecentIndexSection,
+  buildFallbackSourceSummary,
 } from "./ingest"
+import { insertWikiIndexEntry } from "./wiki-index-section"
 import { useWikiStore } from "@/stores/wiki-store"
 
 beforeEach(() => {
@@ -259,6 +262,46 @@ describe("analysis + generation prompt consistency", () => {
     const generation = buildGenerationPrompt("", "", "", "f.pdf", undefined, korean)
     expect(analysis).toContain("MANDATORY OUTPUT LANGUAGE: Korean")
     expect(generation).toContain("MANDATORY OUTPUT LANGUAGE: Korean")
+  })
+})
+
+describe("Korean wiki output", () => {
+  it("uses Korean prose and examples even with English sources while retaining the file protocol", () => {
+    useWikiStore.getState().setOutputLanguage("Korean")
+    const source = "Cache hit rate increased from 70% to 90%."
+    const generation = buildGenerationPrompt("", "", "", "notes.hwp", undefined, source)
+    for (const prompt of [
+      buildAnalysisPrompt("", "", source), buildChunkAnalysisSystemPrompt("", "", "", source),
+      generation, buildPageMergeSystemPrompt(source),
+    ]) {
+      expect(prompt).toContain("캐시 적중률을 확인한다")
+      expect(prompt).toContain("PostgreSQL과 CREATE TABLE")
+    }
+    expect(generation).toContain("title: 자료 보관 기준")
+    expect(generation).toContain("---END FILE---")
+    expect(generation).toContain("OPTIONS: Create Page | Skip")
+    expect(generation).toContain("wiki/sources/notes.md")
+    useWikiStore.getState().setOutputLanguage("English")
+    expect(buildGenerationPrompt("", "", "", "notes.hwp", undefined, "한국어 자료")).not.toContain("캐시 적중률")
+  })
+
+  it("adds a saved query under the existing English or Korean heading", () => {
+    const entry = "- [[queries/sql|SQL]]"
+    expect(insertWikiIndexEntry("", "queries", entry, "Korean")).toBe(`# 위키 색인\n\n## 질문\n${entry}\n`)
+    const legacy = insertWikiIndexEntry("# Index\n\n## Queries\n", "queries", entry, "Korean")
+    expect(legacy).toContain(`## Queries\n${entry}`)
+    expect(legacy).not.toContain("## 질문")
+  })
+
+  it("updates a prior managed heading in place while keeping file identities and user sections", () => {
+    const old = "# 내 색인\n\n## Recently Updated\n- [[cache]]\n\n## 사용자 메모\n본문"
+    const updated = updateBoundedRecentIndexSection(old, ["- [[notes]]"], "Korean")
+    expect(updated).toContain("## 최근 변경 문서\n- [[notes]]\n- [[cache]]")
+    expect(updated).not.toContain("Recently Updated")
+    expect(updated).toContain("## 사용자 메모\n본문")
+    const recovered = buildFallbackSourceSummary("manual.hwp", "원문 분석", "2026-01-01", "Korean")
+    expect(recovered).toContain("# 출처: manual.hwp")
+    expect(recovered).toContain('sources: ["manual.hwp"]')
   })
 })
 
