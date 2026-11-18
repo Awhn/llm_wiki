@@ -55,6 +55,7 @@ export function FilePreview({ filePath, textContent }: FilePreviewProps) {
 }
 
 function FilePreviewContent({ filePath, textContent }: FilePreviewProps) {
+  const { t } = useTranslation()
   const category = getFileCategory(filePath)
   const fileName = getFileName(filePath)
   const extension = getFileExtension(filePath)
@@ -85,10 +86,10 @@ function FilePreviewContent({ filePath, textContent }: FilePreviewProps) {
       }
       return <CodePreview filePath={filePath} content={textContent} />
     case "text":
-      return <TextPreview filePath={filePath} content={textContent} label="Text" />
+      return <TextPreview filePath={filePath} content={textContent} label={t("preview.pdfText")} />
     case "document":
       if (isExtractedTextPreviewFile(filePath)) {
-        return <TextPreview filePath={filePath} content={textContent} label={extractedTextLabel(filePath)} />
+        return <TextPreview filePath={filePath} content={textContent} label={t("preview.extractedFormat", { format: extractedFormat(extension) })} />
       }
       return <BinaryPlaceholder filePath={filePath} fileName={fileName} category={category} />
     default:
@@ -346,38 +347,13 @@ function isAgentWorkspacePath(filePath: string): boolean {
   return normalizePath(filePath).split("/").includes("agent-workspace")
 }
 
-function extractedTextLabel(filePath: string): string {
-  switch (getFileExtension(filePath)) {
-    case "hwp":
-    case "hwpx":
-      return "한글 (rhwp)"
-    case "doc":
-      return "Word DOC (extracted text)"
-    case "docx":
-    case "docm":
-      return "Word DOCX (extracted text)"
-    case "ppt":
-    case "pps":
-    case "pot":
-    case "pptx":
-    case "pptm":
-    case "ppsx":
-    case "ppsm":
-      return "PowerPoint (extracted text)"
-    case "xls":
-    case "xlsx":
-    case "xlsm":
-    case "xlsb":
-      return "Spreadsheet (extracted text)"
-    case "odt":
-    case "ods":
-    case "odp":
-      return "OpenDocument (extracted text)"
-    case "rtf":
-      return "Rich Text Format (extracted text)"
-    default:
-      return "Extracted text"
-  }
+function extractedFormat(extension: string): string {
+  const format = extension.toUpperCase()
+  if (extension === "hwp" || extension === "hwpx") return `${format} (rhwp)`
+  if (["doc", "docx", "docm"].includes(extension)) return `Word ${format}`
+  if (["ppt", "pps", "pot", "pptx", "pptm", "ppsx", "ppsm"].includes(extension)) return `PowerPoint ${format}`
+  if (["odt", "ods", "odp"].includes(extension)) return `OpenDocument ${format}`
+  return format
 }
 
 function ImagePreview({ filePath, fileName }: { filePath: string; fileName: string }) {

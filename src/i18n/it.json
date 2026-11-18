@@ -216,6 +216,7 @@
     }
   },
   "sources": {
+    "allFiles": "Tutti i file",
     "title": "Fonti grezze",
     "import": "Importa",
     "importing": "Importazione...",
@@ -1083,6 +1084,7 @@
     }
   },
   "preview": {
+    "extractedFormat": "{{format}} (testo estratto)",
     "back": "Indietro",
     "forward": "Avanti",
     "selectFile": "Seleziona un file da visualizzare",

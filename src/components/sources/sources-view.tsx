@@ -170,7 +170,7 @@ export function SourcesView() {
       title: t("sources.importSourceFiles"),
       filters: [
         {
-          name: "Documents",
+          name: t("settings.sections.sourceWatch.groups.documents"),
           extensions: [
             "md", "mdx", "txt", "org", ...HANGUL_EXTENSIONS, "rtf", "pdf",
             "html", "htm", "xml",
@@ -180,25 +180,25 @@ export function SourcesView() {
           ],
         },
         {
-          name: "Data",
+          name: t("settings.sections.sourceWatch.groups.data"),
           extensions: ["json", "jsonl", "csv", "tsv", "yaml", "yml", "ndjson"],
         },
         {
-          name: "Code",
+          name: t("settings.sections.sourceWatch.groups.code"),
           extensions: [
             "py", "js", "ts", "jsx", "tsx", "rs", "go", "java",
             "c", "cpp", "h", "rb", "php", "swift", "sql", "sh",
           ],
         },
         {
-          name: "Images",
+          name: t("settings.sections.sourceWatch.groups.images"),
           extensions: ["png", "jpg", "jpeg", "gif", "webp", "svg", "bmp", "tiff", "avif", "heic"],
         },
         {
-          name: "Media",
+          name: t("settings.sections.sourceWatch.groups.media"),
           extensions: ["mp4", "webm", "mov", "avi", "mkv", "mp3", "wav", "ogg", "flac", "m4a"],
         },
-        { name: "All Files", extensions: ["*"] },
+        { name: t("sources.allFiles"), extensions: ["*"] },
       ],
     })
 

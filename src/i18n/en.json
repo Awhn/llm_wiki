@@ -216,6 +216,7 @@
     }
   },
   "sources": {
+    "allFiles": "All files",
     "title": "Raw Sources",
     "import": "Import",
     "importing": "Importing...",
@@ -1083,6 +1084,7 @@
     }
   },
   "preview": {
+    "extractedFormat": "{{format}} (extracted text)",
     "back": "Back",
     "forward": "Forward",
     "selectFile": "Select a file to preview",
