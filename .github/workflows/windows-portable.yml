@@ -1,0 +1,73 @@
+name: Windows x64 portable
+
+on:
+  push:
+    branches: [release/windows-x64-portable]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  portable:
+    runs-on: windows-2022
+    timeout-minutes: 150
+    env:
+      CARGO_PROFILE_RELEASE_LTO: "false"
+      CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "16"
+      CARGO_NET_RETRY: "5"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: arduino/setup-protoc@v3
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - run: npm ci
+      - run: npm run tauri -- build --no-bundle --ci
+      - name: Package and test the extracted application
+        shell: pwsh
+        run: |
+          $version = node -p "require('./package.json').version"
+          ./.github/scripts/package-windows-portable.ps1 -Version $version
+          $zip = Get-Item "dist-portable/LLM-Wiki-$version-windows-x64-portable.zip"
+          $root = Join-Path $env:RUNNER_TEMP "portable smoke test"
+          [System.IO.Compression.ZipFile]::ExtractToDirectory($zip.FullName, $root)
+          foreach ($line in Get-Content src-tauri/rhwp/SHA256SUMS) {
+            $expected, $path = $line -split '\s+', 2
+            $file = Join-Path $root ("rhwp/" + (Split-Path $path -Leaf))
+            if ((Get-FileHash $file).Hash -ne $expected) { throw "Invalid $file" }
+          }
+          foreach ($document in Get-ChildItem src-tauri/rhwp/fixtures -File) {
+            $out = & "$root/rhwp/rhwp.exe" export-llm $document.FullName --format json
+            if ($LASTEXITCODE -ne 0) { throw "Parser failed on $document" }
+            $chunks = ($out | ConvertFrom-Json).chunks
+            if (($chunks.text -join '') -notmatch '검토를 마쳤습니다' -or ($chunks.headingPath -join '') -notmatch '회의 결과') { throw "Missing fixture text in $document" }
+          }
+          $app = Start-Process -PassThru -FilePath "$root/LLM Wiki.exe" -WorkingDirectory $root
+          try {
+            $ready = $false
+            for ($i = 0; $i -lt 90; $i++) {
+              Start-Sleep -Seconds 1
+              $app.Refresh()
+              if ($app.HasExited) { throw "Portable app exited with $($app.ExitCode)" }
+              if ($app.MainWindowHandle -ne 0 -and $app.Responding) { $ready = $true; break }
+            }
+            if (!$ready) { throw "Portable app window did not open" }
+          } finally {
+            if (!$app.HasExited) { Stop-Process -Id $app.Id }
+          }
+          "$((Get-FileHash $zip.FullName).Hash.ToLowerInvariant())  $($zip.Name)" | Set-Content "$($zip.FullName).sha256" -Encoding ascii
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-x64-portable
+          path: |
+            dist-portable/*.zip
+            dist-portable/*.sha256
+          compression-level: 0
+          if-no-files-found: error
