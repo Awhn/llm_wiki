@@ -1,0 +1,5 @@
+# sha256sum reads this manifest on Windows as well as Unix.
+SHA256SUMS text eol=lf
+# Keep the exact upstream resource and fixture bytes on every checkout.
+windows-x64/* -text
+fixtures/* -text

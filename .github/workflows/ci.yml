@@ -41,6 +41,10 @@ jobs:
         with:
           workspaces: src-tauri
 
+      - name: Test joining a wiki with a Korean author ID
+        working-directory: src-tauri
+        run: cargo test --locked -p llm-wiki-sync --lib join_clones_existing_pages_and_syncs_with_a_korean_author
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:

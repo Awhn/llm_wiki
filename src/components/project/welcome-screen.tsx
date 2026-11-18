@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { FolderOpen, Plus, Clock, X } from "lucide-react"
+import { FolderOpen, Plus, Users, Clock, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { getRecentProjects, removeFromRecentProjects } from "@/lib/project-store"
 import type { WikiProject } from "@/types/wiki"
@@ -7,6 +7,7 @@ import { useTranslation } from "react-i18next"
 
 interface WelcomeScreenProps {
   onCreateProject: () => void
+  onJoinProject: () => void
   onOpenProject: () => void
   onSelectProject: (project: WikiProject) => void
 }
@@ -14,6 +15,7 @@ interface WelcomeScreenProps {
 export function WelcomeScreen({
   onCreateProject,
   onOpenProject,
+  onJoinProject,
   onSelectProject,
 }: WelcomeScreenProps) {
   const { t } = useTranslation()
@@ -40,7 +42,7 @@ export function WelcomeScreen({
           </p>
         </div>
 
-        <div className="flex gap-3">
+        <div className="flex flex-wrap justify-center gap-3">
           <Button onClick={onCreateProject}>
             <Plus className="mr-2 h-4 w-4" />
             {t("welcome.newProject")}
@@ -48,6 +50,10 @@ export function WelcomeScreen({
           <Button variant="outline" onClick={onOpenProject}>
             <FolderOpen className="mr-2 h-4 w-4" />
             {t("welcome.openProject")}
+          </Button>
+          <Button variant="outline" onClick={onJoinProject}>
+            <Users className="mr-2 h-4 w-4" />
+            {t("wikiSync.joinProject")}
           </Button>
         </div>
 

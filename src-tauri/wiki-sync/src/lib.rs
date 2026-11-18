@@ -62,13 +62,13 @@ pub fn allowed(path: &str) -> bool {
             .any(|prefix| path.to_ascii_lowercase().starts_with(prefix))
 }
 fn validate_id(id: &str) -> Result<()> {
-    if id.len() > 64
-        || !id.as_bytes().first().is_some_and(u8::is_ascii_alphanumeric)
-        || !id
-            .bytes()
-            .all(|b| b.is_ascii_alphanumeric() || b"._-".contains(&b))
+    let letter_or_digit =
+        |c: char| c.is_ascii_alphanumeric() || matches!(c, '가'..='힣' | 'ㄱ'..='ㅎ' | 'ㅏ'..='ㅣ');
+    if id.chars().count() > 64
+        || !id.chars().next().is_some_and(letter_or_digit)
+        || !id.chars().all(|c| letter_or_digit(c) || "._-".contains(c))
     {
-        return Err(invalid("Use 1–64 letters, digits, dots, underscores or hyphens, starting with a letter or digit."));
+        return Err(invalid("Use 1–64 Korean or Latin letters, digits, dots, underscores or hyphens, starting with a letter or digit."));
     }
     Ok(())
 }
@@ -413,6 +413,63 @@ pub fn recover_clone(root: &Path) -> Result<()> {
     fs::rename(backup, wiki)?;
     file.set_len(0)?;
     Ok(())
+}
+
+/// Prepare a new local project privately and publish it only after the clone
+/// passes the same checks as a connection from Settings.
+pub fn join_project(
+    parent: &Path,
+    origin: &str,
+    remote: &str,
+    id: &str,
+    scaffold: impl FnOnce(&Path) -> Result<()>,
+) -> Result<PathBuf> {
+    validate_id(id)?;
+    if origin.trim().is_empty() {
+        return Err(fault(
+            "Missing Origin",
+            "Ask your administrator to configure the Gitea origin.",
+        ));
+    }
+    validate_remote(remote, origin).map_err(|e| fault("Invalid Remote", &e.message))?;
+    let leaf = remote
+        .trim_end_matches('/')
+        .rsplit('/')
+        .next()
+        .unwrap_or_default();
+    let name = leaf.strip_suffix(".git").unwrap_or(leaf);
+    if name.is_empty() || name.starts_with('.') || name.ends_with('.') {
+        return Err(fault(
+            "Invalid Remote",
+            "The repository needs a usable project folder name.",
+        ));
+    }
+    let destination = parent.join(name);
+    let exists = || {
+        fault(
+            "Destination Exists",
+            "A folder with this name already exists.",
+        )
+    };
+    if destination.try_exists()? {
+        return Err(exists());
+    }
+    let staging = tempfile::Builder::new()
+        .prefix(".llm-wiki-join-")
+        .tempdir_in(parent)?;
+    let root = staging.path().join("project");
+    fs::create_dir(&root)?;
+    scaffold(&root)?;
+    let dir = wiki(&root)?;
+    connect(&dir, origin, remote, id, true, false, &|_| {})?;
+    renamore::rename_exclusive(root, &destination).map_err(|e| {
+        if e.kind() == io::ErrorKind::AlreadyExists {
+            exists()
+        } else {
+            e.into()
+        }
+    })?;
+    Ok(destination)
 }
 
 pub fn connect(

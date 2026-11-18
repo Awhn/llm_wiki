@@ -132,6 +132,18 @@ pub async fn git_sync_status(project_path: String) -> git::Result<Status> {
     .await
 }
 #[tauri::command]
+pub async fn git_sync_join(parent: String, remote: String, user_id: String) -> git::Result<String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let root = git::join_project(Path::new(&parent), &origin(), &remote, &user_id, |root| {
+            super::project::initialize_local_project(root).map_err(|e| error(&e))
+        })?;
+        Ok(root.to_string_lossy().replace('\\', "/"))
+    })
+    .await
+    .map_err(|_| error("The Wiki Sync worker stopped."))?
+}
+
+#[tauri::command]
 pub async fn git_sync_connect(
     project_path: String,
     remote: String,
