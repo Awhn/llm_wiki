@@ -1,4 +1,4 @@
-import { useMemo } from "react"
+import { useMemo, useState, type ImgHTMLAttributes } from "react"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import remarkMath from "remark-math"
@@ -7,11 +7,18 @@ import "katex/dist/katex.min.css"
 import { transformImageEmbeds, transformWikilinks } from "@/lib/wikilink-transform"
 import { resolveRelatedSlug } from "@/lib/wiki-page-resolver"
 import { resolveMarkdownImageSrc } from "@/lib/markdown-image-resolver"
+import { useWikiSync } from "@/lib/wiki-sync"
 import { normalizePath } from "@/lib/path-utils"
 import { detectLanguage } from "@/lib/detect-language"
 import { getHtmlLang, getTextDirection } from "@/lib/language-metadata"
 import { useWikiStore } from "@/stores/wiki-store"
 import { MermaidDiagram, unwrapMermaidPre } from "@/components/mermaid-diagram"
+
+function WikiImage({ src, alt, ...props }: ImgHTMLAttributes<HTMLImageElement>) {
+  const [missing, setMissing] = useState(false)
+  if (!src || missing) return <span className="text-sm text-muted-foreground">{alt || "Image"} (unavailable on this device)</span>
+  return <img {...props} alt={alt || ""} src={src} onError={() => setMissing(true)} />
+}
 
 interface WikiReaderProps {
   body: string
@@ -42,6 +49,7 @@ interface WikiReaderProps {
  * giving the user single-click navigation between pages.
  */
 export function WikiReader({ body, sourceBody, sourceOffset = 0, filePath }: WikiReaderProps) {
+  const shared = useWikiSync(s => Boolean(s.config))
   const project = useWikiStore((s) => s.project)
   const projectPathIndex = useWikiStore((s) => s.projectPathIndex)
   const openPathInPreview = useWikiStore((s) => s.openPathInPreview)
@@ -162,9 +170,9 @@ export function WikiReader({ body, sourceBody, sourceOffset = 0, filePath }: Wik
             </h3>
           ),
           img: ({ src, alt, ...props }) => (
-            <img
+            <WikiImage key={src}
               src={
-                typeof src === "string"
+                typeof src === "string" && !(shared && /^(?:https?:|\/\/)/i.test(src))
                   ? resolveMarkdownImageSrc(src, projectPath, currentFileDir)
                   : undefined
               }

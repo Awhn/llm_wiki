@@ -70,12 +70,27 @@ export function resolveSourceReference(
   index: ProjectPathIndex,
   ref: string,
   sourcesRoot: string | null,
+  shared = false,
 ): SourceReferenceResolution {
   const trimmedRef = ref.trim()
   const externalUrl = normalizeHttpUrl(trimmedRef)
   if (externalUrl) return { kind: "external", url: externalUrl }
   if (!sourcesRoot) return { kind: "missing" }
 
+  // A shared page can outlive its local source. Match the stored relative
+  // identity exactly, including a root source's basename.
+  if (shared) {
+    const ref = trimmedRef.replace(/\\/g, "/")
+    if (ref.split("/").some(segment => !segment || segment === "." || segment === "..")) return { kind: "missing" }
+    const project = sourcesRoot.replace(/\/raw\/sources$/, "")
+    const candidates = /^(wiki|raw)\/sources\//.test(ref) ? [project + "/" + ref] :
+      [!ref.includes("/") && ref.endsWith(".md") ? project + "/wiki/sources/" + ref : "", sourcesRoot + "/" + ref]
+    for (const candidate of candidates) {
+      const file = index.byPath.get(candidate)
+      if (file && index.filesByName.get(file.name)?.some(entry => entry.path === file.path)) return { kind: "local", path: file.path }
+    }
+    return { kind: "missing" }
+  }
   const path = resolveSourceName(index, trimmedRef, sourcesRoot)
   return path ? { kind: "local", path } : { kind: "missing" }
 }

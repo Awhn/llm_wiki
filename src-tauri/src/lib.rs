@@ -595,6 +595,7 @@ pub fn run() {
             // drained on process exit or by claude_cli_kill.
             app.manage(commands::claude_cli::ClaudeCliState::default());
             app.manage(commands::codex_cli::CodexCliState::default());
+            app.manage(commands::git_sync::GitWatches::default());
             app.manage(commands::file_sync::FileSyncState::default());
             app.manage(agent::session::AgentSessionStore::default());
             app.manage(agent::cancel::AgentCancellationRegistry::default());
@@ -691,6 +692,15 @@ pub fn run() {
             commands::extract_images::extract_office_images_cmd,
             commands::extract_images::extract_and_save_pdf_images_cmd,
             commands::extract_images::extract_and_save_office_images_cmd,
+            commands::git_sync::git_sync_status,
+            commands::git_sync::git_sync_connect,
+            commands::git_sync::git_sync_now,
+            commands::git_sync::git_sync_embed_page,
+            commands::git_sync::git_sync_enable,
+            commands::git_sync::git_sync_disconnect,
+            commands::git_sync::git_sync_acknowledge,
+            commands::git_sync::git_sync_watch,
+            commands::git_sync::git_sync_unwatch,
             commands::file_sync::start_project_file_watcher,
             commands::file_sync::stop_project_file_watcher,
             commands::file_sync::rescan_project_files,

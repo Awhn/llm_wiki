@@ -353,6 +353,7 @@ fn validate_wiki_project_root(root: &Path) -> Result<(), String> {
             root.display()
         ));
     }
+    llm_wiki_sync::recover_clone(root).map_err(|err| err.message)?;
     if !root.join("wiki").is_dir() {
         return Err(format!(
             "Not a valid wiki project (missing wiki/ directory): '{}'",

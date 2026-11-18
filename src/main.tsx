@@ -1,6 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
+import { WikiIdentityGate } from "@/components/settings/sections/wiki-sync-section";
 import "./index.css";
 import "@/i18n";
 import { loadAndApplyTheme, watchSystemTheme } from "@/lib/theme";
@@ -22,7 +23,7 @@ async function initApp() {
 
     ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
       <React.StrictMode>
-        <App />
+        <WikiIdentityGate><App /></WikiIdentityGate>
         <AppDialogHost />
       </React.StrictMode>
     );

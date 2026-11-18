@@ -16,6 +16,8 @@ import { startClipWatcher } from "@/lib/clip-watcher"
 import { DEFAULT_SOURCE_WATCH_CONFIG } from "@/lib/source-watch-config"
 import { useGlobalShortcut } from "@/hooks/use-global-shortcut"
 import { AppLayout } from "@/components/layout/app-layout"
+import { stopWikiSync } from "@/lib/wiki-sync"
+import { WikiSyncMonitor } from "@/components/settings/sections/wiki-sync-section"
 import { WelcomeScreen } from "@/components/project/welcome-screen"
 import { CreateProjectDialog } from "@/components/project/create-project-dialog"
 import type { WikiProject } from "@/types/wiki"
@@ -431,6 +433,7 @@ function App() {
   }, [])
 
   async function handleProjectOpened(proj: WikiProject) {
+    await stopWikiSync()
     // Flush the OUTGOING project's review/lint/chat state to disk and suspend
     // auto-save before reset empties the stores — otherwise the debounced
     // writers would persist empty arrays back over the old project's pending
@@ -617,6 +620,7 @@ function App() {
   }
 
   async function handleSwitchProject() {
+    await stopWikiSync()
     import("@/lib/project-file-sync").then(({ stopAllProjectFileSync }) => {
       stopAllProjectFileSync()
     }).catch(() => {})
@@ -674,6 +678,7 @@ function App() {
 
   return (
     <>
+      <WikiSyncMonitor />
       <AppLayout onSwitchProject={handleSwitchProject} />
       <CreateProjectDialog
         open={showCreateDialog}

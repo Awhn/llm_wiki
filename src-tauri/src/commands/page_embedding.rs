@@ -297,6 +297,7 @@ async fn remove_legacy_vector_id_if_safe(project_path: &str, page_id: &str) {
     let owners = WalkDir::new(&wiki_root)
         .follow_links(false)
         .into_iter()
+        .filter_entry(|e| e.file_name() != ".git")
         .filter_map(Result::ok)
         .filter(|entry| entry.file_type().is_file())
         .filter(|entry| {
@@ -716,6 +717,7 @@ mod tests {
 
     fn embedding_config(model: &str) -> SearchEmbeddingConfig {
         SearchEmbeddingConfig {
+            internal_sync: false,
             enabled: true,
             endpoint: "https://example.com/v1/embeddings".to_string(),
             api_key: "secret".to_string(),

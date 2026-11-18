@@ -27,6 +27,7 @@ import { getTaskLlmConfig } from "@/lib/llm-task-routing"
 import { messageImageToDataUrl } from "@/lib/chat-image-utils"
 import { resolveMarkdownImageSrc } from "@/lib/markdown-image-resolver"
 import { transformImageEmbeds } from "@/lib/wikilink-transform"
+import { useWikiSync } from "@/lib/wiki-sync"
 import { findRawSourceForImage, imageUrlToAbsolute } from "@/lib/raw-source-resolver"
 import { detectLanguage } from "@/lib/detect-language"
 import { getHtmlLang, getTextDirection } from "@/lib/language-metadata"
@@ -859,7 +860,7 @@ function CitedReferencesPanel({
     async (firstUrl: string, fallbackPath: string) => {
       if (!project) return
       const pp = normalizePath(project.path)
-      const rawPath = await findRawSourceForImage(firstUrl, pp)
+      const rawPath = await findRawSourceForImage(firstUrl, pp, Boolean(useWikiSync.getState().config))
       if (rawPath) {
         try {
           const content = await readFile(rawPath)
