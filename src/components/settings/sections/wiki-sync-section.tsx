@@ -1,56 +1,32 @@
-import { useEffect, useState, type ReactNode } from "react"
+import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import { openPathInProject } from "@/commands/fs"
-import { loadWikiUserId, saveWikiUserId, validWikiUserId } from "@/lib/project-store"
+import { saveWikiUserId, validWikiUserId } from "@/lib/project-store"
 import { activeWikiSync, startWikiSync, useWikiSync } from "@/lib/wiki-sync"
 import { useWikiStore } from "@/stores/wiki-store"
 
 const inputClass = "w-full rounded-md border bg-background px-3 py-2 text-sm"
-function IdentityForm({ initial = "", first = false }: { initial?: string; first?: boolean }) {
+function IdentityForm({ initial }: { initial: string }) {
   const { t } = useTranslation()
   const [id, setId] = useState(initial)
   const [error, setError] = useState("")
   return <form className="space-y-2" onSubmit={async e => {
     e.preventDefault()
     try {
-      await saveWikiUserId(id)
-      useWikiSync.setState({ userId: id })
+      const userId = await saveWikiUserId(id)
+      useWikiSync.setState({ userId })
       setError("")
     } catch (err) { setError(String(err)) }
   }}>
     <label className="block text-sm">{t("wikiSync.userId")}
-      <input className={inputClass} autoFocus={first} value={id} maxLength={64} required
+      <input className={inputClass} value={id} required
         autoComplete="off" onChange={e => setId(e.target.value)} />
     </label>
     <p className="text-xs text-muted-foreground">{t("wikiSync.idHint")}</p>
-    <Button type="submit" disabled={!validWikiUserId(id) || (!first && id === initial)}>{first ? t("wikiSync.continue") : t("wikiSync.saveId")}</Button>
+    <Button type="submit" disabled={!validWikiUserId(id) || id.normalize("NFC") === initial}>{t("wikiSync.saveId")}</Button>
     {error && <p role="alert">{error}</p>}
   </form>
-}
-
-export function WikiIdentityGate({ children }: { children: ReactNode }) {
-  const { t } = useTranslation()
-  const userId = useWikiSync(s => s.userId)
-  const [loaded, setLoaded] = useState(false)
-  const [error, setError] = useState("")
-  useEffect(() => {
-    let active = true
-    loadWikiUserId().then(id => {
-      if (active && id) useWikiSync.setState({ userId: id })
-    }).catch(() => { if (active) setError("wikiSync.idError") })
-      .finally(() => { if (active) setLoaded(true) })
-    return () => { active = false }
-  }, [])
-  if (!loaded) return null
-  if (userId) return children
-  return <main className="grid h-screen place-items-center bg-background p-6 text-foreground">
-    <div className="w-full max-w-sm space-y-4">
-      <h1 className="text-xl font-semibold">{t("wikiSync.welcome")}</h1>
-      {error && <p role="alert">{t(error)}</p>}
-      <IdentityForm first />
-    </div>
-  </main>
 }
 
 export function WikiSyncMonitor() {
@@ -107,15 +83,15 @@ export function WikiSyncSection() {
             onChange={e => setRemote(e.target.value)} />
         </label>
         <div className="flex flex-wrap gap-2">
-          <Button disabled={!remote} onClick={() => connect(true)}>{t("wikiSync.clone")}</Button>
-          <Button variant="outline" disabled={!remote} onClick={() => connect(false)}>{t("wikiSync.connect")}</Button>
+          <Button disabled={!remote || !state.userId} onClick={() => connect(true)}>{t("wikiSync.clone")}</Button>
+          <Button variant="outline" disabled={!remote || !state.userId} onClick={() => connect(false)}>{t("wikiSync.connect")}</Button>
           {phase === "Backup Required" && <Button variant="outline" onClick={() => connect(true, true)}>{t("wikiSync.backupClone")}</Button>}
         </div>
       </> : <>
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={config.enabled}
           onChange={e => void run?.action("enable", { enabled: e.target.checked })} />{t("wikiSync.auto")}</label>
         <div className="flex flex-wrap gap-2">
-          <Button onClick={() => void run?.action("now", { resolve: phase === "Conflict" })}>
+          <Button disabled={!state.userId} onClick={() => void run?.action("now", { resolve: phase === "Conflict" })}>
             {phase === "Conflict" ? t("wikiSync.retry") : t("wikiSync.now")}
           </Button>
           <Button variant="outline" onClick={() => { if (project) void openPathInProject(project.path, "wiki").catch(e => setError(String(e))) }}>{t("wikiSync.open")}</Button>

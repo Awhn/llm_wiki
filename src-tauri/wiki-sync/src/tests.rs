@@ -22,7 +22,7 @@ impl Team {
             fs::write(dir.parent().unwrap().join("schema.md"), "local schema").unwrap();
         }
         Self {
-            url: root.join("remote.git").to_str().unwrap().to_owned(),
+            url: root.join("remote.git").to_str().unwrap().replace('\\', "/"),
             root,
             a,
             b,
@@ -66,6 +66,69 @@ fn validates_identity_and_pins_endpoint() {
         assert!(validate_remote(url, origin).is_err());
     }
     assert!(validate_remote("https://gitea.internal:8443/team/wiki.git", origin).is_ok());
+}
+#[test]
+fn join_clones_existing_pages_and_syncs_with_a_korean_author() {
+    let t = Team::new();
+    t.publish();
+    let parent = t.root.join("작업 폴더");
+    fs::create_dir(&parent).unwrap();
+    let scaffold = |p: &Path| -> Result<()> {
+        fs::write(p.join("schema.md"), "local schema")?;
+        Ok(fs::create_dir(p.join("wiki"))?)
+    };
+    let id = "홍길동_dev-2";
+    let project = join_project(&parent, "bare-test", &t.url, id, scaffold).unwrap();
+    assert_eq!(project, parent.join("remote"));
+    let dir = wiki(&project).unwrap();
+    let config = settings(&dir, "bare-test").unwrap().unwrap();
+    assert!(config.enabled && config.backup.is_none());
+    assert_eq!(config.branch, "team");
+    assert_eq!(
+        fs::read_to_string(dir.join("overview.md"))
+            .unwrap()
+            .trim_end(),
+        "base"
+    );
+    assert!(changes(&dir).unwrap().paths.contains("overview.md"));
+    assert!(validate_id(&"한".repeat(64)).is_ok());
+    assert!(validate_id(&"한".repeat(65)).is_err());
+    fs::write(dir.join("notes.md"), "회의록").unwrap();
+    sync(&dir, "bare-test", id, false, &|_| {}).unwrap();
+    assert_eq!(
+        line(
+            Path::new(&t.url),
+            &["log", "team", "-1", "--format=%an <%ae>"]
+        )
+        .unwrap(),
+        "홍길동_dev-2 <홍길동_dev-2@local.invalid>"
+    );
+    assert_eq!(
+        join_project(&parent, "bare-test", &t.url, id, scaffold)
+            .unwrap_err()
+            .kind,
+        "Destination Exists"
+    );
+    assert!(dir.join("notes.md").is_file());
+
+    let missing = t.root.join("missing.git");
+    assert!(join_project(
+        &parent,
+        "bare-test",
+        missing.to_str().unwrap(),
+        id,
+        scaffold
+    )
+    .is_err());
+    assert_eq!(parent.read_dir().unwrap().count(), 1);
+    let raced = t.root.join("raced");
+    fs::create_dir(&raced).unwrap();
+    assert!(join_project(&raced, "bare-test", &t.url, id, |p| {
+        fs::create_dir(raced.join("remote"))?;
+        scaffold(p)
+    })
+    .is_err());
+    assert_eq!(raced.join("remote").read_dir().unwrap().count(), 0);
 }
 #[test]
 fn clone_pull_merge_author_and_deletion() {

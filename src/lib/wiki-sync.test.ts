@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { useWikiStore } from "@/stores/wiki-store"
-import { loadWikiUserId, saveWikiUserId } from "./project-store"
+import { loadWikiUserId, saveWikiUserId, validWikiUserId } from "./project-store"
 import { refreshGitPages, useWikiSync, WikiSyncSession } from "./wiki-sync"
 import { withProjectLock } from "./project-mutex"
 
@@ -37,12 +37,28 @@ beforeEach(() => {
 afterEach(() => { session.stop(); vi.useRealTimers() })
 
 describe("Wiki Sync", () => {
-  it("prompts for an absent ID and persists a valid identity across loads", async () => {
+  it("preserves ASCII identities and saves Korean IDs in composed form", async () => {
     expect(await loadWikiUserId()).toBeNull()
     await expect(saveWikiUserId("../alice")).rejects.toThrow()
     await saveWikiUserId("alice-1")
     expect(mock.save).toHaveBeenCalledOnce()
     expect(await loadWikiUserId()).toBe("alice-1")
+    const korean = "홍길동_dev-2"
+    expect(await saveWikiUserId(korean.normalize("NFD"))).toBe(korean)
+    expect(await loadWikiUserId()).toBe(korean)
+    expect(validWikiUserId("한".repeat(64))).toBe(true)
+    for (const invalid of ["한".repeat(65), "홍 길동", "-홍", "홍길동\n"]) {
+      expect(validWikiUserId(invalid)).toBe(false)
+    }
+  })
+  it("leaves projects available locally until a sync identity is saved", async () => {
+    useWikiSync.setState({ userId: "" })
+    await session.start()
+    await vi.advanceTimersByTimeAsync(30000)
+    expect(runs()).toBe(0)
+    useWikiSync.setState({ userId: "김지수" })
+    await vi.advanceTimersByTimeAsync(30000)
+    expect(mock.invoke).toHaveBeenCalledWith("git_sync_now", { projectPath: "/alice", userId: "김지수", resolve: false })
   })
   it("coalesces writes for three seconds and polls idle projects every thirty seconds", async () => {
     await session.start()
