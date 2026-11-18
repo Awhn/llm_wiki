@@ -1,0 +1,44 @@
+name: Attach verified Windows portable build
+
+on:
+  push:
+    branches: [release/stage-windows-x64-portable]
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  attach:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Locate the successful build for the draft release
+        id: build
+        run: |
+          version=$(jq -r .version package.json)
+          tag="windows-x64-portable-$version"
+          release=$(gh release view "$tag" --json isDraft,targetCommitish)
+          sha=$(jq -er 'select(.isDraft) | .targetCommitish' <<< "$release")
+          run=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/windows-portable.yml/runs?head_sha=$sha&status=success" --jq '.workflow_runs[0].id')
+          test -n "$run"
+          echo "run=$run" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+      - uses: actions/download-artifact@v4
+        with:
+          name: windows-x64-portable
+          run-id: ${{ steps.build.outputs.run }}
+          github-token: ${{ github.token }}
+          path: dist-portable
+      - name: Verify package and attach the ZIP with its checksum
+        working-directory: dist-portable
+        env:
+          TAG: ${{ steps.build.outputs.tag }}
+        run: |
+          sha256sum --check *.zip.sha256
+          unzip -tq *.zip
+          gh release upload "$TAG" *.zip *.zip.sha256 --repo "$GITHUB_REPOSITORY"
+          cat *.zip.sha256 >> "$GITHUB_STEP_SUMMARY"
