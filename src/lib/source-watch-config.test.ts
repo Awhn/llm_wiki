@@ -19,16 +19,21 @@ describe("source watch config", () => {
   })
 
   it("upgrades the previous default extension set without changing custom lists", () => {
-    const previousDefaults = DEFAULT_SOURCE_WATCH_CONFIG.includeExtensions.filter(
+    const previousDefaults = sourceWatchDefaults.includeExtensions.filter(
       (extension) => !["png", "jpg", "jpeg"].includes(extension),
     )
     expect(normalizeSourceWatchConfig({ includeExtensions: previousDefaults }).includeExtensions)
-      .toEqual([...previousDefaults, "png", "jpg", "jpeg"])
+      .toEqual(DEFAULT_SOURCE_WATCH_CONFIG.includeExtensions)
+    expect(normalizeSourceWatchConfig({ includeExtensions: sourceWatchDefaults.includeExtensions }).includeExtensions)
+      .toEqual(DEFAULT_SOURCE_WATCH_CONFIG.includeExtensions)
     expect(normalizeSourceWatchConfig({ includeExtensions: ["md", "pdf"] }).includeExtensions)
       .toEqual(["md", "pdf"])
   })
   it("uses the shared default fixture", () => {
-    expect(DEFAULT_SOURCE_WATCH_CONFIG).toEqual(sourceWatchDefaults)
+    expect(DEFAULT_SOURCE_WATCH_CONFIG).toEqual({
+      ...sourceWatchDefaults,
+      includeExtensions: [...sourceWatchDefaults.includeExtensions, ...(__WINDOWS_X64__ ? ["hwp", "hwpx"] : [])],
+    })
     expect(normalizeSourceWatchConfig({}).persistExtractedMarkdown).toBe(false)
     expect(normalizeSourceWatchConfig({}).parsingConcurrency).toBe(2)
     expect(normalizeSourceWatchConfig({}).ingestConcurrency).toBe(1)

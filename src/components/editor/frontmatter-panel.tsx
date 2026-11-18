@@ -24,6 +24,7 @@ import {
   unwrapWikilink,
 } from "@/lib/wiki-page-resolver"
 import { useWikiStore } from "@/stores/wiki-store"
+import { useWikiSync } from "@/lib/wiki-sync"
 import { normalizePath } from "@/lib/path-utils"
 import { useTranslation } from "react-i18next"
 
@@ -44,6 +45,7 @@ const TOP_LEVEL_KEYS = new Set([
 
 export function FrontmatterPanel({ data }: FrontmatterPanelProps) {
   const { t } = useTranslation()
+  const shared = useWikiSync(s => Boolean(s.config))
   const project = useWikiStore((s) => s.project)
   const projectPathIndex = useWikiStore((s) => s.projectPathIndex)
   const openPathInPreview = useWikiStore((s) => s.openPathInPreview)
@@ -163,6 +165,7 @@ export function FrontmatterPanel({ data }: FrontmatterPanelProps) {
                 projectPathIndex,
                 slug,
                 sourcesRoot,
+                shared,
               )
               const onClick =
                 resolution.kind === "local"

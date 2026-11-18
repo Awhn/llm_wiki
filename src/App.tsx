@@ -2,20 +2,22 @@ import { useState, useEffect } from "react"
 import { open } from "@tauri-apps/plugin-dialog"
 import { invoke } from "@tauri-apps/api/core"
 import { disable as disableAutostart, enable as enableAutostart, isEnabled as isAutostartEnabled } from "@tauri-apps/plugin-autostart"
-import i18n from "@/i18n"
 import { useWikiStore } from "@/stores/wiki-store"
 import { useReviewStore } from "@/stores/review-store"
 import { useLintStore } from "@/stores/lint-store"
 import { useChatStore } from "@/stores/chat-store"
 import { BASE_FONT_SIZE_PX, useZoomStore } from "@/stores/zoom-store"
 import { openProject } from "@/commands/fs"
-import { getLastProject, getRecentProjects, saveLastProject, loadLlmConfig, loadLanguage, loadSearchApiConfig, loadEmbeddingConfig, loadMineruConfig, loadMultimodalConfig, loadOutputLanguage, loadProviderConfigs, loadCustomLlmPresets, loadActivePresetId, loadTaskModelRouting, loadProjectLlmOverride, loadProxyConfig, loadScheduledImportConfig, saveScheduledImportConfig, loadSourceWatchAllProjects, loadSourceWatchConfig, loadApiConfig, loadGeneralConfig, loadZoomLevel } from "@/lib/project-store"
+import { getLastProject, getRecentProjects, saveLastProject, loadLlmConfig, loadSearchApiConfig, loadEmbeddingConfig, loadMineruConfig, loadMultimodalConfig, loadOutputLanguage, loadProviderConfigs, loadCustomLlmPresets, loadActivePresetId, loadTaskModelRouting, loadProjectLlmOverride, loadProxyConfig, loadScheduledImportConfig, saveScheduledImportConfig, loadSourceWatchAllProjects, loadSourceWatchConfig, loadApiConfig, loadGeneralConfig, loadZoomLevel } from "@/lib/project-store"
 import { loadReviewItems, loadLintItems, loadChatHistory, loadChatPreferences } from "@/lib/persist"
 import { setupAutoSave } from "@/lib/auto-save"
 import { startClipWatcher } from "@/lib/clip-watcher"
 import { DEFAULT_SOURCE_WATCH_CONFIG } from "@/lib/source-watch-config"
 import { useGlobalShortcut } from "@/hooks/use-global-shortcut"
 import { AppLayout } from "@/components/layout/app-layout"
+import i18n, { closeDialogLabels } from "@/i18n"
+import { stopWikiSync } from "@/lib/wiki-sync"
+import { WikiSyncMonitor } from "@/components/settings/sections/wiki-sync-section"
 import { WelcomeScreen } from "@/components/project/welcome-screen"
 import { CreateProjectDialog } from "@/components/project/create-project-dialog"
 import type { WikiProject } from "@/types/wiki"
@@ -241,6 +243,8 @@ function App() {
           return
         }
 
+        if (await invoke<boolean>("git_sync_managed")) return
+
         const now = Date.now()
         // Cache hit requires BOTH the timestamp AND the in-memory
         // result to be present. `lastCheckedAt` is persisted to
@@ -394,7 +398,7 @@ function App() {
         const savedGeneral = await loadGeneralConfig()
         useWikiStore.getState().setGeneralConfig(savedGeneral)
         try {
-          await invoke<string>("set_close_behavior", { value: savedGeneral.closeBehavior })
+          await invoke<string>("set_close_behavior", { value: savedGeneral.closeBehavior, labels: closeDialogLabels(i18n.language) })
         } catch (err) {
           console.warn("[general] failed to hydrate close behavior:", err)
         }
@@ -407,10 +411,6 @@ function App() {
           }
         } catch (err) {
           console.warn("[general] failed to sync autostart:", err)
-        }
-        const savedLang = await loadLanguage()
-        if (savedLang) {
-          await i18n.changeLanguage(savedLang)
         }
         const lastProject = await getLastProject()
         if (lastProject) {
@@ -431,6 +431,7 @@ function App() {
   }, [])
 
   async function handleProjectOpened(proj: WikiProject) {
+    await stopWikiSync()
     // Flush the OUTGOING project's review/lint/chat state to disk and suspend
     // auto-save before reset empties the stores — otherwise the debounced
     // writers would persist empty arrays back over the old project's pending
@@ -617,6 +618,7 @@ function App() {
   }
 
   async function handleSwitchProject() {
+    await stopWikiSync()
     import("@/lib/project-file-sync").then(({ stopAllProjectFileSync }) => {
       stopAllProjectFileSync()
     }).catch(() => {})
@@ -674,6 +676,7 @@ function App() {
 
   return (
     <>
+      <WikiSyncMonitor />
       <AppLayout onSwitchProject={handleSwitchProject} />
       <CreateProjectDialog
         open={showCreateDialog}

@@ -198,7 +198,7 @@ export function MaintenanceSection() {
     if (!project) return
     setProjectToolBusy(true)
     try {
-      const result = await invoke<{ pages: number; groups: number }>("rebuild_wiki_index", { projectPath: project.path })
+      const result = await invoke<{ pages: number; groups: number }>("rebuild_wiki_index", { projectPath: project.path, outputLanguage: useWikiStore.getState().outputLanguage })
       await refreshProjectFileTree(project.path, { bumpDataVersion: true })
       setProjectToolStatus(t("settings.sections.maintenance.projectData.rebuilt", { pages: result.pages, groups: result.groups }))
     } catch (error) { setProjectToolStatus(String(error)) } finally { setProjectToolBusy(false) }

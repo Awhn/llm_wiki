@@ -291,29 +291,22 @@ export async function extractAndSaveMarkdownImages(
 export function buildImageMarkdownSection(
   images: SavedImage[],
   captionsBySha?: Map<string, string>,
+  language?: string,
 ): string {
   if (images.length === 0) return ""
 
-  const lines: string[] = ["", "", "## Embedded Images", ""]
+  const korean = language === "Korean"
+  const lines: string[] = ["", "", korean ? "## 문서에 포함된 그림" : "## Embedded Images", ""]
   // Group by page so the LLM can correlate "Figure 3 mentioned on
   // page 5" with the right image. DOCX images have page=null; they
   // get grouped under "Document":
-  const byPage = new Map<string, SavedImage[]>()
+  const byPage = new Map<number | null, SavedImage[]>()
   for (const img of images) {
-    const key = img.page == null ? "Document" : `Page ${img.page}`
-    const bucket = byPage.get(key)
+    const bucket = byPage.get(img.page)
     if (bucket) bucket.push(img)
-    else byPage.set(key, [img])
+    else byPage.set(img.page, [img])
   }
-
-  // Page-keyed order, with "Document" (DOCX) last when present.
-  const ordered = [...byPage.keys()].sort((a, b) => {
-    if (a === "Document") return 1
-    if (b === "Document") return -1
-    const numA = parseInt(a.replace(/\D/g, ""), 10) || 0
-    const numB = parseInt(b.replace(/\D/g, ""), 10) || 0
-    return numA - numB
-  })
+  const ordered = [...byPage.keys()].sort((a, b) => (a ?? Infinity) - (b ?? Infinity))
 
   // Sanitize a caption for safe inclusion as alt text — the same
   // rules as the inline-rewrite path: no `]` (would close the alt
@@ -322,9 +315,12 @@ export function buildImageMarkdownSection(
   const sanitize = (s: string): string =>
     s.replace(/[\r\n]+/g, " ").replace(/]/g, ")").trim()
 
-  for (const key of ordered) {
-    lines.push(`### ${key}`, "")
-    for (const img of byPage.get(key) ?? []) {
+  for (const page of ordered) {
+    const heading = page === null
+      ? (korean ? "문서" : "Document")
+      : (korean ? `${page}쪽` : `Page ${page}`)
+    lines.push(`### ${heading}`, "")
+    for (const img of byPage.get(page) ?? []) {
       // Caption lookup by SHA-256 — same key the caption pipeline
       // uses to dedupe across documents. Falling back to empty alt
       // text if no caption is available for this image (caption

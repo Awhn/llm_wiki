@@ -12,6 +12,7 @@ import { applyTextSelectionEdit, readFile } from "@/commands/fs"
 import { streamChat } from "@/lib/llm-client"
 import { refreshProjectFileTree } from "@/lib/project-file-tree-refresh"
 import { searchWiki, type SearchResult } from "@/lib/search"
+import { activeWikiSync, useWikiSync } from "@/lib/wiki-sync"
 import { normalizePath } from "@/lib/path-utils"
 
 interface EditorSelectionRequest {
@@ -49,6 +50,17 @@ export function WikiEditor({ content, onSave, filePath }: WikiEditorProps) {
   // textarea so metadata/frontmatter can be edited without a WYSIWYG serializer
   // rewriting YAML, wikilinks, or other wiki-specific source syntax.
   const [mode, setMode] = useState<"read" | "edit">("read")
+  const syncBusy = useWikiSync(s => s.busy)
+  useEffect(() => {
+    if (mode !== "edit" || !filePath) return
+    useWikiSync.setState({ editing: filePath })
+    return () => {
+      if (useWikiSync.getState().editing === filePath) {
+        useWikiSync.setState({ editing: null })
+        activeWikiSync()?.dirty()
+      }
+    }
+  }, [mode, filePath])
   const [selectionRequest, setSelectionRequest] = useState<EditorSelectionRequest | null>(null)
   const [selectionInstruction, setSelectionInstruction] = useState("")
   // The first action defines the interaction for this selection. Mixing Q&A
@@ -353,6 +365,7 @@ export function WikiEditor({ content, onSave, filePath }: WikiEditorProps) {
             }
             setMode((m) => (m === "read" ? "edit" : "read"))
           }}
+          disabled={mode === "read" && syncBusy}
           title={mode === "read" ? t("editor.editRaw") : t("editor.doneEditing")}
           className="inline-flex items-center gap-1 rounded-md border border-border/60 bg-background/90 px-2 py-1 text-xs text-muted-foreground shadow-sm hover:bg-accent hover:text-foreground"
         >

@@ -10,6 +10,7 @@
   },
   "bundle": {
     "resources": {
+      "rhwp/windows-x64/": "rhwp/",
       "pdfium/pdfium.dll": "pdfium/pdfium.dll",
       "../mcp-server/package.json": "mcp-server/package.json",
       "../mcp-server/dist": "mcp-server/dist",

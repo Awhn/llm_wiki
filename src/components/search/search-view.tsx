@@ -6,6 +6,7 @@ import { searchWiki, tokenizeQuery, type SearchResult, type ImageRef } from "@/l
 import { useTranslation } from "react-i18next"
 import { normalizePath } from "@/lib/path-utils"
 import { resolveMarkdownImageSrc } from "@/lib/markdown-image-resolver"
+import { useWikiSync } from "@/lib/wiki-sync"
 import { findRawSourceForImage, imageUrlToAbsolute } from "@/lib/raw-source-resolver"
 import { isImeComposing } from "@/lib/keyboard-utils"
 
@@ -157,7 +158,7 @@ export function SearchView() {
 
     if (projectPath) {
       const pp = normalizePath(projectPath)
-      const rawPath = await findRawSourceForImage(hit.url, pp)
+      const rawPath = await findRawSourceForImage(hit.url, pp, Boolean(useWikiSync.getState().config))
       if (rawPath) {
         console.log(`[search:jump] ${hit.url} → raw source ${rawPath}`)
         openPath = rawPath

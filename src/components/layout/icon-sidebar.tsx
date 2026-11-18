@@ -155,10 +155,7 @@ export function IconSidebar({ onSwitchProject }: IconSidebarProps) {
               />
             </TooltipTrigger>
             <TooltipContent side="right">
-              {daemonStatus === "running" && "Clip server running"}
-              {daemonStatus === "starting" && "Clip server starting..."}
-              {daemonStatus === "port_conflict" && "Port 19827 is occupied. Web Clipper unavailable."}
-              {daemonStatus === "error" && "Clip server error. Restarting..."}
+              {t(`clipStatus.${daemonStatus}`, { defaultValue: t("clipStatus.error") })}
             </TooltipContent>
           </Tooltip>
           <Tooltip>

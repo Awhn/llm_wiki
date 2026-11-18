@@ -327,6 +327,7 @@ The original focuses on text/markdown. We support structured extraction preservi
 | DOCX | docx-rs — headings, bold/italic, lists, tables → structured Markdown |
 | PPTX | ZIP + XML — slide-by-slide extraction with heading/list structure |
 | XLSX/XLS/ODS | calamine — proper cell types, multi-sheet support, Markdown tables |
+| HWP/HWPX (Windows x64) | Import Hangul documents in Sources. The bundled rhwp parser extracts headings, paragraphs, and tables as Markdown and runs offline. |
 | EPUB/MOBI | Electronic book metadata, chapters, and body text → ingest-ready content |
 | Images | Native preview (png, jpg, gif, webp, svg, etc.) |
 | Video/Audio | Built-in player |

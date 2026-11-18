@@ -9,11 +9,17 @@ use crate::panic_guard::run_guarded;
 use crate::types::wiki::WikiProject;
 
 #[tauri::command]
-pub fn create_project(name: String, path: String) -> Result<WikiProject, String> {
-    run_guarded("create_project", || create_project_impl(name, path))
+pub fn create_project(
+    name: String,
+    path: String,
+    output_language: Option<String>,
+) -> Result<WikiProject, String> {
+    run_guarded("create_project", || {
+        create_project_impl(name, path, output_language.as_deref() == Some("Korean"))
+    })
 }
 
-fn create_project_impl(name: String, path: String) -> Result<WikiProject, String> {
+fn create_project_impl(name: String, path: String, korean: bool) -> Result<WikiProject, String> {
     let root = Path::new(&path).join(&name);
 
     if root.exists() {
@@ -152,7 +158,10 @@ When sources contradict each other:
     write_file_inner(root.join("purpose.md"), purpose_content)?;
 
     // wiki/index.md
-    let index_content = r#"# Wiki Index
+    let index_content = if korean {
+        "# 위키 색인\n\n## 개체\n\n## 개념\n\n## 자료\n\n## 질문\n\n## 비교\n\n## 종합\n"
+    } else {
+        r#"# Wiki Index
 
 ## Entities
 
@@ -165,22 +174,30 @@ When sources contradict each other:
 ## Comparisons
 
 ## Synthesis
-"#;
+"#
+    };
     write_file_inner(root.join("wiki/index.md"), index_content)?;
 
     // wiki/log.md
-    let log_content = format!(
-        r#"# Research Log
+    let log_content = if korean {
+        format!("# 활동 기록\n\n## {today}\n\n- 프로젝트 생성\n")
+    } else {
+        format!(
+            r#"# Research Log
 
 ## {today}
 
 - Project created
 "#
-    );
+        )
+    };
     write_file_inner(root.join("wiki/log.md"), &log_content)?;
 
     // wiki/overview.md
-    let overview_content = r#"---
+    let overview_content = if korean {
+        "---\ntype: overview\ntitle: 프로젝트 개요\ntags: []\nrelated: []\n---\n\n# 개요\n\n<!-- 위키의 주제와 현재까지 정리한 내용을 요약하세요. -->\n"
+    } else {
+        r#"---
 type: overview
 title: Project Overview
 tags: []
@@ -190,7 +207,8 @@ related: []
 # Overview
 
 <!-- Provide a high-level summary of what this wiki covers and its current state. Update regularly as understanding deepens. -->
-"#;
+"#
+    };
     write_file_inner(root.join("wiki/overview.md"), overview_content)?;
 
     // .obsidian config for Obsidian compatibility
@@ -353,6 +371,7 @@ fn validate_wiki_project_root(root: &Path) -> Result<(), String> {
             root.display()
         ));
     }
+    llm_wiki_sync::recover_clone(root).map_err(|err| err.message)?;
     if !root.join("wiki").is_dir() {
         return Err(format!(
             "Not a valid wiki project (missing wiki/ directory): '{}'",

@@ -1,5 +1,55 @@
 {
+  "wikiSync": {
+    "indexPending": "搜索索引等待中。请检查本地嵌入模型。",
+    "waitForEdit": "编辑完成后将恢复同步。",
+    "title": "维基同步",
+    "userId": "用户 ID",
+    "idHint": "该名称将记入维基提交。请以字母或数字开头，可使用点、下划线和连字符。",
+    "continue": "继续",
+    "saveId": "保存用户 ID",
+    "idError": "无法读取已保存的用户 ID。",
+    "welcome": "欢迎使用 LLM Wiki",
+    "offer": "连接共享维基…",
+    "server": "服务器",
+    "askAdmin": "请联系管理员配置 Gitea 服务器。",
+    "status": "状态",
+    "repository": "仓库",
+    "lastSync": "上次同步",
+    "pending": "等待中",
+    "backup": "本地备份",
+    "url": "仓库 URL",
+    "clone": "克隆现有仓库",
+    "connect": "连接本地维基",
+    "backupClone": "备份本地维基后克隆",
+    "auto": "每 30 秒自动同步",
+    "retry": "解决冲突后重试",
+    "now": "立即同步",
+    "open": "打开维基文件夹",
+    "disconnect": "断开连接",
+    "phase": {
+      "Not Configured": "未配置",
+      "Connecting": "连接中",
+      "Connected": "已连接",
+      "Synced": "已同步",
+      "Syncing": "同步中",
+      "Offline": "离线",
+      "Authentication Error": "身份验证失败",
+      "Conflict": "冲突",
+      "Error": "错误",
+      "Backup Required": "需要备份",
+      "Retry": "重试"
+    }
+  },
+  "clipStatus": {
+    "running": "网页剪藏服务运行中",
+    "starting": "正在启动网页剪藏服务…",
+    "port_conflict": "端口 19827 已占用，网页剪藏服务不可用。",
+    "error": "网页剪藏出错，正在重启…"
+  },
   "app": {
+    "hide": "隐藏窗口",
+    "quit": "退出",
+    "closeMessage": "退出 LLM Wiki？隐藏窗口可让后台任务继续运行。",
     "title": "LLM Wiki",
     "subtitle": "用 LLM 构建和维护你的个人知识库"
   },
@@ -100,7 +150,8 @@
   "research": {
     "title": "深度研究",
     "notConfigured": "深度研究信息来源尚未配置。请到设置 → 外部信息源中配置网页搜索或 AnyTXT。",
-    "activeBadge": "{{running}} 个运行中{{queued, plural, =0 {} other {，{{queued}} 个排队中}}}",
+    "activeBadge": "{{running}} 个运行中",
+    "activeBadgeQueued": "{{running}} 个运行中，{{queued}} 个排队中",
     "inputPlaceholder": "输入研究主题...",
     "emptyTitle": "还没有研究任务",
     "emptyHint": "在上方输入主题，或在待审阅中点击深度研究",
@@ -165,6 +216,7 @@
     }
   },
   "sources": {
+    "allFiles": "所有文件",
     "title": "原始资料",
     "import": "导入",
     "importing": "导入中...",
@@ -1032,6 +1084,7 @@
     }
   },
   "preview": {
+    "extractedFormat": "{{format}}（提取的文本）",
     "back": "后退",
     "forward": "前进",
     "selectFile": "选择文件以预览",

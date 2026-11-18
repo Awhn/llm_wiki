@@ -40,7 +40,7 @@ mod tests {
             "---\ntype: concept\ntitle: Also Alpha\n---\nBody",
         )
         .unwrap();
-        let result = rebuild_wiki_index_inner(root.to_string_lossy().into_owned()).unwrap();
+        let result = rebuild_wiki_index_inner(root.to_string_lossy().into_owned(), false).unwrap();
         let index = fs::read_to_string(root.join("wiki/index.md")).unwrap();
         assert_eq!(result.pages, 2);
         assert!(index.contains("## entity"));
@@ -285,16 +285,16 @@ fn frontmatter_value(content: &str, key: &str) -> Option<String> {
 }
 
 #[tauri::command]
-pub async fn rebuild_wiki_index(project_path: String) -> Result<RebuildIndexResult, String> {
-    tauri::async_runtime::spawn_blocking(move || rebuild_wiki_index_inner(project_path))
+pub async fn rebuild_wiki_index(project_path: String, output_language: Option<String>) -> Result<RebuildIndexResult, String> {
+    tauri::async_runtime::spawn_blocking(move || rebuild_wiki_index_inner(project_path, output_language.as_deref() == Some("Korean")))
         .await
         .map_err(|error| format!("Index rebuild task failed: {error}"))?
 }
 
-fn rebuild_wiki_index_inner(project_path: String) -> Result<RebuildIndexResult, String> {
+fn rebuild_wiki_index_inner(project_path: String, korean: bool) -> Result<RebuildIndexResult, String> {
     let wiki = PathBuf::from(project_path).join("wiki");
     let mut groups: BTreeMap<String, Vec<(String, String)>> = BTreeMap::new();
-    for entry in WalkDir::new(&wiki).follow_links(false) {
+    for entry in WalkDir::new(&wiki).follow_links(false).into_iter().filter_entry(|e| e.file_name() != ".git") {
         let entry = entry.map_err(|error| format!("Failed to enumerate wiki pages: {error}"))?;
         if !entry.file_type().is_file()
             || entry.path().extension().and_then(|v| v.to_str()) != Some("md")
@@ -328,9 +328,19 @@ fn rebuild_wiki_index_inner(project_path: String) -> Result<RebuildIndexResult, 
         pages.sort_by(|a, b| a.1.to_lowercase().cmp(&b.1.to_lowercase()));
     }
     let count = groups.values().map(Vec::len).sum();
-    let mut output = String::from("# Wiki Index\n\n");
+    let mut output = String::from(if korean { "# 위키 색인\n\n" } else { "# Wiki Index\n\n" });
     for (kind, pages) in &groups {
-        output.push_str(&format!("## {}\n\n", kind));
+        let heading = match (korean, kind.as_str()) {
+            (true, "entity") => "개체",
+            (true, "concept") => "개념",
+            (true, "source") => "자료",
+            (true, "query") => "질문",
+            (true, "comparison") => "비교",
+            (true, "synthesis") => "종합",
+            (true, "other") => "기타",
+            _ => kind.as_str(),
+        };
+        output.push_str(&format!("## {heading}\n\n"));
         for (slug, title) in pages {
             output.push_str(&format!("- [[{}|{}]]\n", slug, title));
         }

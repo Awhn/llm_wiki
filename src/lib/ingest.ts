@@ -1385,11 +1385,11 @@ async function autoIngestImpl(
   }
 
   try {
-    if (await updateWikiIndexDeterministically(pp, writtenPaths)) {
+    if (await updateWikiIndexDeterministically(pp, writtenPaths, getOutputLanguage(sourceContent))) {
       writtenPaths.push("wiki/index.md")
       onFileWritten?.("wiki/index.md")
     }
-    if (await updateWikiOverviewDeterministically(pp, writtenPaths)) {
+    if (await updateWikiOverviewDeterministically(pp, writtenPaths, getOutputLanguage(sourceContent))) {
       writtenPaths.push("wiki/overview.md")
       onFileWritten?.("wiki/overview.md")
     }
@@ -1442,7 +1442,7 @@ async function autoIngestImpl(
   // task for retry rather than "success".
   if (!hasSourceSummary && !signal?.aborted) {
     const date = new Date().toISOString().slice(0, 10)
-    const fallbackContent = buildFallbackSourceSummary(sourceIdentity, analysis, date)
+    const fallbackContent = buildFallbackSourceSummary(sourceIdentity, analysis, date, getOutputLanguage(sourceContent))
     try {
       await writeFile(sourceSummaryFullPath, fallbackContent)
       writtenPaths.push(sourceSummaryPath)
@@ -1700,6 +1700,7 @@ export function rewriteIngestPathFromTitleForTargetLanguage(
 async function updateWikiIndexDeterministically(
   projectPath: string,
   writtenPaths: string[],
+  language: string,
 ): Promise<boolean> {
   const candidates = Array.from(new Set(writtenPaths.map(normalizePath))).filter((path) =>
     path.startsWith("wiki/")
@@ -1709,7 +1710,7 @@ async function updateWikiIndexDeterministically(
   if (candidates.length === 0) return false
 
   const indexPath = `${projectPath}/wiki/index.md`
-  const index = await readFile(indexPath).catch(() => "# Wiki Index\n")
+  const index = await readFile(indexPath).catch(() => language === "Korean" ? "# 위키 색인\n" : "# Wiki Index\n")
   const knownTargets = new Set(
     Array.from(index.matchAll(/\[\[([^\]|#]+)(?:#[^\]|]+)?(?:\|[^\]]+)?\]\]/g))
       .map((match) => normalizeIndexTarget(match[1])),
@@ -1727,7 +1728,7 @@ async function updateWikiIndexDeterministically(
   }
   if (additions.length === 0) return false
 
-  await writeFile(indexPath, updateBoundedRecentIndexSection(index, additions))
+  await writeFile(indexPath, updateBoundedRecentIndexSection(index, additions, language))
   return true
 }
 
@@ -1737,6 +1738,7 @@ const OVERVIEW_RECENT_END = "<!-- llm-wiki:recent-end -->"
 async function updateWikiOverviewDeterministically(
   projectPath: string,
   writtenPaths: string[],
+  language: string,
 ): Promise<boolean> {
   const candidates = Array.from(new Set(writtenPaths.map(normalizePath))).filter((path) =>
     path.startsWith("wiki/")
@@ -1749,12 +1751,12 @@ async function updateWikiOverviewDeterministically(
   const overview = await readFile(overviewPath).catch(() => [
     "---",
     "type: overview",
-    "title: Project Overview",
+    language === "Korean" ? "title: 프로젝트 개요" : "title: Project Overview",
     "tags: []",
     "related: []",
     "---",
     "",
-    "# Overview",
+    language === "Korean" ? "# 개요" : "# Overview",
     "",
   ].join("\n"))
   const additions: string[] = []
@@ -1767,7 +1769,7 @@ async function updateWikiOverviewDeterministically(
       : getFileName(path).replace(/\.md$/i, "")
     additions.push(`- [[${target}]] — ${title}`)
   }
-  const updated = updateBoundedOverviewRecentSection(overview, additions)
+  const updated = updateBoundedOverviewRecentSection(overview, additions, language)
   if (updated === overview) return false
   await writeFile(overviewPath, updated)
   return true
@@ -1776,6 +1778,7 @@ async function updateWikiOverviewDeterministically(
 export function updateBoundedOverviewRecentSection(
   overview: string,
   additions: string[],
+  language = "English",
 ): string {
   const start = overview.indexOf(OVERVIEW_RECENT_START)
   const end = overview.indexOf(OVERVIEW_RECENT_END)
@@ -1787,7 +1790,7 @@ export function updateBoundedOverviewRecentSection(
   const recent = Array.from(new Set([...additions, ...existing])).slice(0, 50)
   const block = [
     OVERVIEW_RECENT_START,
-    "## Recently Updated",
+    language === "Korean" ? "## 최근 변경 문서" : "## Recently Updated",
     ...recent,
     OVERVIEW_RECENT_END,
   ].join("\n")
@@ -1804,10 +1807,10 @@ function normalizeIndexTarget(target: string): string {
     .toLowerCase()
 }
 
-export function updateBoundedRecentIndexSection(index: string, additions: string[]): string {
-  const section = "## Recently Updated"
+export function updateBoundedRecentIndexSection(index: string, additions: string[], language = "English"): string {
+  const section = language === "Korean" ? "## 최근 변경 문서" : "## Recently Updated"
   const lines = index.trimEnd().split("\n")
-  const start = lines.findIndex((line) => line.trim() === section)
+  const start = lines.findIndex((line) => ["## Recently Updated", "## 최근 변경 문서"].includes(line.trim()))
   const prefix = start >= 0 ? lines.slice(0, start) : lines
   const sectionEnd = start >= 0
     ? lines.findIndex((line, position) => position > start && /^##\s+/.test(line))
@@ -2024,24 +2027,26 @@ export function buildFallbackSourceSummary(
   sourceIdentity: string,
   analysis: string,
   date: string,
+  language = getOutputLanguage(analysis),
 ): string {
+  const label = language === "Korean" ? "출처" : "Source"
   return [
     "---",
     "type: source",
-    `title: "Source: ${sourceIdentity}"`,
+    `title: ${JSON.stringify(`${label}: ${sourceIdentity}`)}`,
     `created: ${date}`,
     `updated: ${date}`,
-    `sources: ["${sourceIdentity}"]`,
+    `sources: ${JSON.stringify([sourceIdentity])}`,
     "tags: []",
     "related: []",
     "---",
     "",
-    `# Source: ${sourceIdentity}`,
+    `# ${label}: ${sourceIdentity}`,
     "",
     // This is a recovery page, so preserving the complete analysis matters
     // more than keeping the page short. Truncating here used to create
     // syntactically valid but silently incomplete source summaries.
-    analysis || "(Analysis not available)",
+    analysis || (language === "Korean" ? "(분석 결과 없음)" : "(Analysis not available)"),
     "",
   ].join("\n")
 }
@@ -2508,6 +2513,8 @@ export function buildGenerationPrompt(
   const sourceBaseName = sourceFileName.replace(/\.[^.]+$/, "")
   const summaryPath = sourceSummaryPath ?? `wiki/sources/${sourceBaseName}.md`
   const today = currentWikiDate()
+  const korean = getOutputLanguage(sourceContent) === "Korean"
+  const exampleTitle = korean ? "자료 보관 기준" : "Example Entity"
 
   return [
     "You are a wiki maintainer. Based on the analysis provided, generate wiki files.",
@@ -2572,17 +2579,17 @@ export function buildGenerationPrompt(
     "",
     "    ---",
     "    type: entity",
-    "    title: Example Entity",
+    `    title: ${exampleTitle}`,
     `    created: ${today}`,
     `    updated: ${today}`,
-    "    tags: [example, demo]",
-    "    related: [related-slug-1, related-slug-2]",
+    korean ? "    tags: [기록, 보관]" : "    tags: [example, demo]",
+    korean ? "    related: [기록-관리]" : "    related: [related-slug-1, related-slug-2]",
     `    sources: ["${sourceFileName}"]`,
     "    ---",
     "",
-    "    # Example Entity",
+    `    # ${exampleTitle}`,
     "",
-    "    Body content goes here. Use [[wikilink]] syntax in the body for cross-references.",
+    korean ? "    보관 기간과 폐기 절차는 [[기록-관리]] 문서에 정리되어 있다." : "    Body content goes here. Use [[wikilink]] syntax in the body for cross-references.",
     "",
     "Other rules:",
     "- Use [[wikilink]] syntax in the BODY for cross-references between pages",
@@ -3187,7 +3194,7 @@ export function buildChunkAnalysisSystemPrompt(
     "",
     languageRule(sourceContent),
     "",
-    "Output exactly two markdown sections:",
+    "Output exactly two markdown sections. Preserve the literal headings `## Chunk Analysis` and `## Updated Global Digest` for the parser; use the mandatory output language inside them.",
     "HARD OUTPUT LIMITS: each section must stay within 60 lines; list at most 25 entities and 25 concepts; never use a table for entity enumeration.",
     "",
     "## Chunk Analysis",
@@ -3384,7 +3391,7 @@ async function analyzeLongSourceInChunks(
  */
 function buildPageMerger(llmConfig: LlmConfig): MergeFn {
   return async (existingContent, incomingContent, sourceFileName, signal) => {
-    const systemPrompt = buildPageMergeSystemPrompt()
+    const systemPrompt = buildPageMergeSystemPrompt(incomingContent)
     const sanitizeProvenance = (value: string) => value
       .replace(/[\r\n#`]+/g, " ")
       .replace(/---+/g, " ")
@@ -3451,7 +3458,7 @@ function buildPageMerger(llmConfig: LlmConfig): MergeFn {
   }
 }
 
-export function buildPageMergeSystemPrompt(): string {
+export function buildPageMergeSystemPrompt(incomingContent = ""): string {
   return [
     "You are merging source-backed material for the same wiki page into one coherent document.",
     "The inputs are internal containers, not revisions or competing versions.",
@@ -3477,6 +3484,7 @@ export function buildPageMergeSystemPrompt(): string {
     "- No preamble (no \"Here is the merged version:\"), no analysis prose",
     "- The caller will overwrite `sources`/`tags`/`related`/`updated` with",
     "  deterministic values — your job is the body and any other fields",
+    ...(getOutputLanguage(incomingContent) === "Korean" ? [languageRule(incomingContent)] : []),
   ].join("\n")
 }
 
@@ -3537,6 +3545,7 @@ async function injectImagesIntoSourceSummary(
         relPath: toSourceSummaryImageRef(img.relPath),
       })) as never,
       captionsBySha,
+      outputLanguage,
     )
     const marker = "<!-- llm-wiki:embedded-images -->"
     const wrapped = `\n\n${marker}\n${newSection.trim()}\n${marker}\n`
@@ -3556,18 +3565,19 @@ async function injectImagesIntoSourceSummary(
       // reaps the media directory (cascadeDeleteWikiPage triggered by
       // a missing source page) — silent loss of extracted images.
       const date = new Date().toISOString().slice(0, 10)
+      const label = outputLanguage === "Korean" ? "출처" : "Source"
       const stubFrontmatter = [
         "---",
         "type: source",
-        `title: "Source: ${sourceIdentity}"`,
+        `title: ${JSON.stringify(`${label}: ${sourceIdentity}`)}`,
         `created: ${date}`,
         `updated: ${date}`,
-        `sources: ["${sourceIdentity}"]`,
+        `sources: ${JSON.stringify([sourceIdentity])}`,
         "tags: []",
         "related: []",
         "---",
         "",
-        `# Source: ${sourceIdentity}`,
+        `# ${label}: ${sourceIdentity}`,
         "",
       ].join("\n")
       await writeFile(sourceSummaryFullPath, stubFrontmatter + wrapped)

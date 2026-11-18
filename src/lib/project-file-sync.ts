@@ -9,6 +9,7 @@ import {
 } from "@/commands/file-sync"
 import { useFileSyncStore } from "@/stores/file-sync-store"
 import { useWikiStore } from "@/stores/wiki-store"
+import { useWikiSync } from "./wiki-sync"
 import { normalizePath } from "@/lib/path-utils"
 import { wikiPageIdFromPath } from "@/lib/embedding"
 import type { WikiProject } from "@/types/wiki"
@@ -323,12 +324,15 @@ async function refreshAfterFileChanges(project: WikiProject, relativePaths: stri
   if (!selected) return
 
   const selectedRel = selected.startsWith(`${pp}/`) ? selected.slice(pp.length + 1) : selected
-  if (!relativePaths.includes(selectedRel)) return
+  const stillSelected = () => useWikiStore.getState().project?.id === project.id &&
+    useWikiStore.getState().selectedFile === store.selectedFile && useWikiSync.getState().editing !== selected
+  if (!relativePaths.includes(selectedRel) || !stillSelected()) return
 
   try {
     const content = await readFile(selected)
-    useWikiStore.getState().setFileContent(content)
+    if (stillSelected()) useWikiStore.getState().setFileContent(content)
   } catch {
+    if (!stillSelected()) return
     useWikiStore.getState().setSelectedFile(null)
     useWikiStore.getState().setFileContent("")
   }

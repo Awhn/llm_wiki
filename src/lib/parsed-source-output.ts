@@ -1,30 +1,6 @@
+import { isExtractedTextPreviewFile } from "@/lib/file-types"
 import { createDirectory, deleteFile, readFile, writeFileAtomic } from "@/commands/fs"
-import { getFileName, getRelativePath, isAbsolutePath, normalizePath } from "@/lib/path-utils"
-
-const PARSED_MARKDOWN_EXTENSIONS = new Set([
-  "pdf",
-  "doc",
-  "docx",
-  "docm",
-  "ppt",
-  "pps",
-  "pot",
-  "pptx",
-  "pptm",
-  "ppsx",
-  "ppsm",
-  "xls",
-  "xlsx",
-  "xlsm",
-  "xlsb",
-  "odt",
-  "ods",
-  "odp",
-  "rtf",
-  "epub",
-  "mobi",
-  "org",
-])
+import { getRelativePath, isAbsolutePath, normalizePath } from "@/lib/path-utils"
 
 /**
  * Map a parsed source to a visible, generated Markdown path. The source must
@@ -46,11 +22,7 @@ export function parsedMarkdownOutputPath(
   if (!relative || (relative === source && !source.toLowerCase().startsWith("raw/sources/")) || isAbsolutePath(relative)) return null
   if (relative.split("/").some((part) => !part || part === "." || part === "..")) return null
 
-  const fileName = getFileName(relative)
-  const extension = fileName.includes(".")
-    ? fileName.split(".").pop()?.toLowerCase() ?? ""
-    : ""
-  if (!PARSED_MARKDOWN_EXTENSIONS.has(extension)) return null
+  if (!isExtractedTextPreviewFile(relative)) return null
   return `${project}/raw/parsed/${relative}.md`
 }
 

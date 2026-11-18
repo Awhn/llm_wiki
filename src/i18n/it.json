@@ -1,5 +1,55 @@
 {
+  "wikiSync": {
+    "indexPending": "Indicizzazione in attesa. Verifica il modello di embedding locale.",
+    "waitForEdit": "La sincronizzazione riprenderà al termine della modifica.",
+    "title": "Sincronizzazione wiki",
+    "userId": "ID utente",
+    "idHint": "I commit della wiki usano questo nome. Inizia con una lettera o una cifra. Sono ammessi punti, trattini e trattini bassi.",
+    "continue": "Continua",
+    "saveId": "Salva ID utente",
+    "idError": "Impossibile leggere l’ID utente salvato.",
+    "welcome": "Benvenuto in LLM Wiki",
+    "offer": "Collega wiki condivisa…",
+    "server": "Server",
+    "askAdmin": "Chiedi all’amministratore di configurare il server Gitea.",
+    "status": "Stato",
+    "repository": "Repository",
+    "lastSync": "Ultima sincronizzazione",
+    "pending": "In attesa",
+    "backup": "Backup locale",
+    "url": "URL del repository",
+    "clone": "Clona repository esistente",
+    "connect": "Collega wiki locale",
+    "backupClone": "Crea backup locale e clona",
+    "auto": "Sincronizza ogni 30 secondi",
+    "retry": "Riprova dopo la risoluzione",
+    "now": "Sincronizza ora",
+    "open": "Apri cartella wiki",
+    "disconnect": "Disconnetti",
+    "phase": {
+      "Not Configured": "Non configurata",
+      "Connecting": "Connessione in corso",
+      "Connected": "Connessa",
+      "Synced": "Sincronizzata",
+      "Syncing": "Sincronizzazione in corso",
+      "Offline": "Offline",
+      "Authentication Error": "Errore di autenticazione",
+      "Conflict": "Conflitto",
+      "Error": "Errore",
+      "Backup Required": "Backup necessario",
+      "Retry": "Riprova"
+    }
+  },
+  "clipStatus": {
+    "running": "Web Clipper in esecuzione",
+    "starting": "Avvio di Web Clipper…",
+    "port_conflict": "Porta 19827 occupata. Web Clipper non disponibile.",
+    "error": "Errore di Web Clipper. Riavvio…"
+  },
   "app": {
+    "hide": "Nascondi finestra",
+    "quit": "Esci",
+    "closeMessage": "Uscire da LLM Wiki? Nascondi la finestra per mantenere attive le attività in background.",
     "title": "LLM Wiki",
     "subtitle": "Costruisci e mantieni la tua knowledge base personale con gli LLM"
   },
@@ -100,7 +150,8 @@
   "research": {
     "title": "Deep Research",
     "notConfigured": "Le fonti per la Deep Research non sono configurate. Vai in Impostazioni → Fonti di informazione esterne per configurare la ricerca web o AnyTXT.",
-    "activeBadge": "{{running}} attive{{queued, plural, =0 {} other {, {{queued}} in coda}}}",
+    "activeBadge": "{{running}} attive",
+    "activeBadgeQueued": "{{running}} attive, {{queued}} in coda",
     "inputPlaceholder": "Inserisci un argomento di ricerca...",
     "emptyTitle": "Ancora nessuna ricerca",
     "emptyHint": "Inserisci un argomento qui sopra oppure clicca su Deep Research in Revisione",
@@ -165,6 +216,7 @@
     }
   },
   "sources": {
+    "allFiles": "Tutti i file",
     "title": "Fonti grezze",
     "import": "Importa",
     "importing": "Importazione...",
@@ -1032,6 +1084,7 @@
     }
   },
   "preview": {
+    "extractedFormat": "{{format}} (testo estratto)",
     "back": "Indietro",
     "forward": "Avanti",
     "selectFile": "Seleziona un file da visualizzare",

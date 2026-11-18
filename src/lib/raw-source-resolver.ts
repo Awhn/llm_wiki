@@ -19,7 +19,7 @@
  *     user moved / deleted the original after ingest, leaving only
  *     the wiki summary). Callers fall back gracefully.
  */
-import { listDirectory } from "@/commands/fs"
+import { fileExists, listDirectory } from "@/commands/fs"
 import {
   sourceIdentityForPath,
   sourceSummarySlugCandidatesFromIdentity,
@@ -30,6 +30,7 @@ import { filterRawSourceTree } from "@/lib/source-filter"
 export async function findRawSourceForImage(
   imageUrl: string,
   projectPath: string,
+  shared = false,
 ): Promise<string | null> {
   // Image URLs reach us in TWO shapes:
   //   1. ABSOLUTE: `/Users/.../wiki/media/<slug>/img-N.png`
@@ -40,6 +41,13 @@ export async function findRawSourceForImage(
   const slug = m[1]
   const normalizedProjectPath = projectPath.replace(/\/+$/, "")
 
+  if (shared) {
+    // A fetched Markdown page may refer to media generated on another client.
+    // Only an image actually extracted on this device can identify a raw source.
+    const local = imageUrlToAbsolute(imageUrl.replace(/^\.\.\/media\//, "media/"), normalizedProjectPath)
+    if (!local.startsWith(normalizedProjectPath + "/wiki/media/") || local.split("/").includes("..") ||
+        !(await fileExists(local).catch(() => false))) return null
+  }
   let tree: FileNode[]
   try {
     tree = filterRawSourceTree(await listDirectory(`${normalizedProjectPath}/raw/sources`, true))
@@ -47,27 +55,27 @@ export async function findRawSourceForImage(
     return null
   }
 
-  const findByMediaSlug = (nodes: FileNode[]): string | null => {
+  const matches = new Set<string>()
+  const findByMediaSlug = (nodes: FileNode[]) => {
     for (const node of nodes) {
       if (node.is_dir) {
         if (node.children) {
-          const found = findByMediaSlug(node.children)
-          if (found) return found
+          findByMediaSlug(node.children)
         }
         continue
       }
       const identity = sourceIdentityForPath(normalizedProjectPath, node.path)
-      if (sourceSummarySlugCandidatesFromIdentity(identity).includes(slug)) return node.path
+      if (sourceSummarySlugCandidatesFromIdentity(identity).includes(slug)) matches.add(node.path)
 
       // Backward compatibility for media folders created before nested source
       // identities were encoded into the slug.
       const stem = node.name.replace(/\.[^.]+$/, "")
-      if (stem === slug) return node.path
+      if (!shared && stem === slug) matches.add(node.path)
     }
-    return null
   }
 
-  return findByMediaSlug(tree)
+  findByMediaSlug(tree)
+  return matches.size === 1 ? [...matches][0] : null
 }
 
 /**

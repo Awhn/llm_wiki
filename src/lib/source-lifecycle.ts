@@ -1,3 +1,4 @@
+import { HANGUL_EXTENSIONS } from "@/lib/file-types"
 import {
   copyFile,
   createDirectory,
@@ -74,6 +75,7 @@ export const INGESTABLE_SOURCE_EXTENSIONS = new Set([
   "yml",
   "epub",
   "mobi",
+  ...HANGUL_EXTENSIONS,
   "org",
   "png",
   "jpg",

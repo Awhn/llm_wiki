@@ -51,6 +51,9 @@ import { ApiServerSection } from "./sections/api-server-section"
 import { GeneralSection } from "./sections/general-section"
 import { ChangelogSection } from "./sections/changelog-section"
 import { MaintenanceSection } from "./sections/maintenance-section"
+import { closeDialogLabels } from "@/i18n"
+import { WikiSyncSection } from "./sections/wiki-sync-section"
+import { useWikiSync } from "@/lib/wiki-sync"
 import { AboutSection } from "./sections/about-section"
 
 type CategoryId =
@@ -60,6 +63,7 @@ type CategoryId =
   | "multimodal"
   | "web-search"
   | "network"
+  | "wiki-sync"
   | "source-watch"
   | "scheduled-import"
   | "mineru"
@@ -86,6 +90,7 @@ const CATEGORIES: Category[] = [
   { id: "multimodal", labelKey: "settings.categories.multimodal", icon: ImageIcon },
   { id: "web-search", labelKey: "settings.categories.webSearch", icon: Globe },
   { id: "network", labelKey: "settings.categories.network", icon: Network },
+  { id: "wiki-sync", labelKey: "wikiSync.title", icon: FolderSync },
   { id: "source-watch", labelKey: "settings.categories.sourceWatch", icon: FolderSync },
   { id: "scheduled-import", labelKey: "settings.categories.scheduledImport", icon: Clock },
   { id: "mineru", labelKey: "settings.categories.mineru", icon: FileText },
@@ -236,7 +241,8 @@ export function SettingsView() {
   // per version.
   const updateAvailable = useUpdateStore((s) => hasAvailableUpdate(s))
 
-  const [active, setActive] = useState<CategoryId>("llm")
+  const [active, setActive] = useState<CategoryId>(() => useWikiSync.getState().openSettings ? "wiki-sync" : "llm")
+  useEffect(() => { useWikiSync.setState({ openSettings: false }) }, [])
   const [saved, setSaved] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [currentTheme, setCurrentTheme] = useState<AppTheme>("system")
@@ -550,7 +556,7 @@ export function SettingsView() {
         console.warn("[general] failed to update autostart:", err)
       }
       try {
-        await invoke<string>("set_close_behavior", { value: newGeneralConfig.closeBehavior })
+        await invoke<string>("set_close_behavior", { value: newGeneralConfig.closeBehavior, labels: closeDialogLabels(draft.uiLanguage) })
       } catch (err) {
         console.warn("[general] failed to update close behavior:", err)
       }
@@ -674,6 +680,7 @@ export function SettingsView() {
         return <WebSearchSection />
       case "network":
         return <NetworkSection draft={draft} setDraft={setDraft} />
+      case "wiki-sync": return <WikiSyncSection />
       case "source-watch":
         return <SourceWatchSection draft={draft} setDraft={setDraft} projectReady={!!project} />
       case "scheduled-import":
@@ -755,7 +762,7 @@ export function SettingsView() {
         {/* Global Save bar hidden for sections that persist inline:
             - "llm" saves per-row on every edit (independent per-preset state)
             - "about" has no draft-bound fields */}
-        {active !== "about" && active !== "llm" && (
+        {active !== "about" && active !== "wiki-sync" && active !== "llm" && (
           <div className="shrink-0 border-t bg-background/80 backdrop-blur px-8 py-3">
             <div className="mx-auto flex max-w-2xl items-center justify-between gap-4">
               <p className={`text-xs ${saveError ? "text-destructive" : "text-muted-foreground"}`}>

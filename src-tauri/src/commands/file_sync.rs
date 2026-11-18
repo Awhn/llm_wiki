@@ -138,8 +138,14 @@ pub struct SourceWatchConfig {
 
 impl Default for SourceWatchConfig {
     fn default() -> Self {
-        serde_json::from_str(DEFAULT_SOURCE_WATCH_CONFIG_JSON)
-            .expect("source-watch-defaults.json must match SourceWatchConfig")
+        let mut config: Self = serde_json::from_str(DEFAULT_SOURCE_WATCH_CONFIG_JSON)
+            .expect("source-watch-defaults.json must match SourceWatchConfig");
+        if cfg!(all(windows, target_arch = "x86_64")) {
+            config
+                .include_extensions
+                .extend(["hwp".into(), "hwpx".into()]);
+        }
+        config
     }
 }
 
@@ -268,6 +274,11 @@ pub fn start_project_file_watcher(
             }
         });
 
+        let wiki_root = root.join("wiki");
+        let git_meta = wiki_root.join(".git");
+        let local_meta = root.join(".llm-wiki");
+        let git_app = app.clone();
+        let git_project = project_id.clone();
         let tx_for_watcher = tx.clone();
         let root_for_overflow = root.clone();
         let root_for_error = root.clone();
@@ -277,7 +288,17 @@ pub fn start_project_file_watcher(
                     if !is_content_change_event(&event.kind) {
                         return;
                     }
+                    if event
+                        .paths
+                        .iter()
+                        .any(|p| super::git_sync::is_wiki_page(&wiki_root, p))
+                    {
+                        let _ = git_app.emit("wiki-sync://dirty", &git_project);
+                    }
                     for path in event.paths {
+                        if path.starts_with(&git_meta) || path.starts_with(&local_meta) {
+                            continue;
+                        }
                         if tx_for_watcher.try_send(path).is_err() {
                             let _ = tx_for_watcher.try_send(root_for_overflow.clone());
                             break;
@@ -479,7 +500,7 @@ fn handle_changed_paths(
             continue;
         }
         if path.is_dir() {
-            for entry in WalkDir::new(&path).into_iter().filter_map(Result::ok) {
+            for entry in watched_files(&path) {
                 if entry.file_type().is_file() && !is_app_write_ignored(entry.path()) {
                     if let Some(rel) = relative_watch_path(
                         root,
@@ -587,6 +608,13 @@ fn is_active_watcher_generation(generation: u64) -> bool {
     WATCHER_GENERATION.load(Ordering::SeqCst) == generation
 }
 
+fn watched_files(root: &Path) -> impl Iterator<Item = walkdir::DirEntry> {
+    WalkDir::new(root)
+        .into_iter()
+        .filter_entry(|e| e.file_name() != ".git" && e.file_name() != ".llm-wiki")
+        .filter_map(Result::ok)
+}
+
 fn collect_known_paths(
     root: &Path,
     path: &Path,
@@ -595,7 +623,7 @@ fn collect_known_paths(
     rules: &SourceWatchRules,
 ) {
     if path.is_dir() {
-        for entry in WalkDir::new(path).into_iter().filter_map(Result::ok) {
+        for entry in watched_files(path) {
             if entry.file_type().is_file() {
                 if let Some(rel) = relative_watch_path(
                     root,
@@ -630,6 +658,16 @@ fn collect_known_paths(
     }
 }
 
+pub(super) fn record_git_changes(wiki: &Path, paths: &BTreeSet<String>) -> Result<(), String> {
+    let Some(root) = wiki.parent() else {
+        return Ok(());
+    };
+    for p in paths {
+        mark_app_write_path(&wiki.join(p));
+    }
+    sync_snapshot_paths(root, paths.iter().map(|p| format!("wiki/{p}")).collect())
+}
+
 fn sync_snapshot_paths(root: &Path, rels: BTreeSet<String>) -> Result<(), String> {
     let metas = rels
         .into_iter()
@@ -661,7 +699,7 @@ fn enqueue_rescan_changes(
 ) -> Result<(), String> {
     let rules = SourceWatchRules::new(source_watch_config);
     let mut rels = BTreeSet::<String>::new();
-    for entry in WalkDir::new(root).into_iter().filter_map(Result::ok) {
+    for entry in watched_files(root) {
         if entry.file_type().is_file() {
             if let Some(rel) = relative_watch_path(
                 root,
@@ -727,7 +765,7 @@ fn enqueue_rescan_changes_for_prefixes(
                 }
             }
         } else if path.exists() {
-            for entry in WalkDir::new(&path).into_iter().filter_map(Result::ok) {
+            for entry in watched_files(&path) {
                 if entry.file_type().is_file() {
                     if let Some(rel) = relative_watch_path(
                         root,
@@ -1137,7 +1175,7 @@ fn should_watch_rel(rel: &str, rules: &SourceWatchRules) -> bool {
         return false;
     }
     let lower = rel.to_lowercase();
-    if lower.contains("/.llm-wiki/")
+    if lower.split('/').any(|part| part == ".git") || lower.contains("/.llm-wiki/")
         || lower.starts_with(".llm-wiki/")
         // App-managed generated media is intentionally ignored here. The
         // source markdown references drive graph/index refresh; media bytes
@@ -1417,7 +1455,7 @@ fn with_queue_lock<T>(root: &Path, f: impl FnOnce() -> Result<T, String>) -> Res
     f()
 }
 
-fn path_key(path: &Path) -> String {
+pub(super) fn path_key(path: &Path) -> String {
     if let Ok(canonical) = path.canonicalize() {
         return normalize_path_key(&canonical);
     }
@@ -1456,7 +1494,7 @@ fn normalize_path_key(path: &Path) -> String {
 /// changes. Only a finished write (`IN_CLOSE_WRITE`) is an access-type event
 /// that matters; every non-access kind (create / modify / remove / rename / ...)
 /// is still forwarded.
-fn is_content_change_event(kind: &EventKind) -> bool {
+pub(super) fn is_content_change_event(kind: &EventKind) -> bool {
     match kind {
         EventKind::Access(access) => matches!(access, AccessKind::Close(AccessMode::Write)),
         _ => true,

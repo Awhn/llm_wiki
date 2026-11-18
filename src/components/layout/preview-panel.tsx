@@ -6,7 +6,8 @@ import { readFile, writeFile } from "@/commands/fs"
 import { getFileCategory, isBinary, isExtractedTextPreviewFile } from "@/lib/file-types"
 import { WikiEditor } from "@/components/editor/wiki-editor"
 import { FilePreview } from "@/components/editor/file-preview"
-import { getFileName } from "@/lib/path-utils"
+import { withProjectLock } from "@/lib/project-mutex"
+import { normalizePath, getFileName } from "@/lib/path-utils"
 
 export function PreviewPanel() {
   const { t } = useTranslation()
@@ -69,8 +70,12 @@ export function PreviewPanel() {
   }, [selectedFile, previewContentPath, externalPreview, setFileContent])
 
   const writeNow = useCallback((path: string, markdown: string, syncStore = false) => {
-    writeFile(path, markdown)
+    const project = useWikiStore.getState().project
+    const save = () => writeFile(path, markdown)
+    const writing = project ? withProjectLock(normalizePath(project.path), save) : save()
+    writing
       .then(() => {
+        if (useWikiStore.getState().selectedFile !== path) return
         lastLoadedRef.current = markdown
         if (syncStore) setFileContent(markdown)
       })

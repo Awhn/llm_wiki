@@ -526,3 +526,20 @@ export async function loadZoomLevel(): Promise<number> {
   const level = await store.get<number>(ZOOM_LEVEL_KEY)
   return normalizeZoomLevel(level)
 }
+
+export function validWikiUserId(value: unknown): value is string {
+  return typeof value === "string" && /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}$/.test(value)
+}
+
+export async function loadWikiUserId(): Promise<string | null> {
+  const store = await getStore()
+  const id = await store.get<unknown>("wikiSyncUserId")
+  return validWikiUserId(id) ? id : null
+}
+
+export async function saveWikiUserId(id: string): Promise<void> {
+  if (!validWikiUserId(id)) throw new Error("Invalid Wiki user ID.")
+  const store = await getStore()
+  await store.set("wikiSyncUserId", id)
+  await store.save()
+}

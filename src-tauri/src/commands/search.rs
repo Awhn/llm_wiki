@@ -86,6 +86,8 @@ pub struct PageLinksResponse {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SearchEmbeddingConfig {
+    #[serde(skip)]
+    pub(crate) internal_sync: bool,
     pub enabled: bool,
     pub endpoint: String,
     pub api_key: String,
@@ -180,7 +182,11 @@ fn get_page_links_inner(project_path: &str, file_path: &str) -> Result<PageLinks
 
     let mut pages = BTreeMap::<String, GraphPage>::new();
     let canonical_project = project.to_string_lossy();
-    for entry in WalkDir::new(&wiki_root).into_iter().filter_map(Result::ok) {
+    for entry in WalkDir::new(&wiki_root)
+        .into_iter()
+        .filter_entry(|e| e.file_name() != ".git")
+        .filter_map(Result::ok)
+    {
         if pages.len() >= MAX_SEARCH_FILES
             || !entry.file_type().is_file()
             || entry.path().extension().and_then(|value| value.to_str()) != Some("md")
@@ -350,7 +356,11 @@ pub async fn search_project_inner(
     let wiki_root = Path::new(&project_path).join("wiki");
     if wiki_root.exists() {
         let mut searched_files = 0usize;
-        for entry in WalkDir::new(&wiki_root).into_iter().filter_map(Result::ok) {
+        for entry in WalkDir::new(&wiki_root)
+            .into_iter()
+            .filter_entry(|e| e.file_name() != ".git")
+            .filter_map(Result::ok)
+        {
             if !entry.file_type().is_file()
                 || !entry
                     .path()
@@ -1221,7 +1231,7 @@ pub(crate) async fn fetch_embedding_batch(
     }
 
     let endpoint = volcengine_embedding_endpoint(cfg);
-    let mut req = crate::proxy::configure_http_client(reqwest::Client::builder())
+    let mut req = embedding_client(cfg, &endpoint)?
         .timeout(std::time::Duration::from_secs(
             SEARCH_EMBEDDING_TIMEOUT_SECS,
         ))
@@ -1354,7 +1364,8 @@ async fn fetch_embedding_once(
     } else {
         volcengine_embedding_endpoint(cfg)
     };
-    let mut req = crate::proxy::configure_http_client(reqwest::Client::builder())
+    let mut req = embedding_client(cfg, &endpoint)
+        .map_err(EmbeddingFetchError::Other)?
         .timeout(std::time::Duration::from_secs(
             SEARCH_EMBEDDING_TIMEOUT_SECS,
         ))
@@ -1514,6 +1525,32 @@ fn is_reserved_extra_header_name(name: &str) -> bool {
 fn is_google_embedding_config(cfg: &SearchEmbeddingConfig) -> bool {
     let endpoint = cfg.endpoint.to_lowercase();
     endpoint.contains("generativelanguage.googleapis.com") || endpoint.contains(":embedcontent")
+}
+
+fn embedding_client(
+    cfg: &SearchEmbeddingConfig,
+    endpoint: &str,
+) -> Result<reqwest::ClientBuilder, String> {
+    let builder = reqwest::Client::builder();
+    if !cfg.internal_sync {
+        return Ok(crate::proxy::configure_http_client(builder));
+    }
+    let url = reqwest::Url::parse(endpoint).map_err(|_| "Invalid internal embedding endpoint")?;
+    let configured = std::env::var("LLM_WIKI_EMBEDDING_ORIGIN")
+        .ok()
+        .and_then(|value| reqwest::Url::parse(&value).ok());
+    if !matches!(url.scheme(), "http" | "https")
+        || !(is_local_or_private_http_endpoint(endpoint)
+            || configured.is_some_and(|u| u.origin() == url.origin()))
+    {
+        return Err(
+            "Shared Wiki indexing requires a local or administrator-approved internal model."
+                .into(),
+        );
+    }
+    Ok(builder
+        .no_proxy()
+        .redirect(reqwest::redirect::Policy::none()))
 }
 
 fn is_local_or_private_http_endpoint(endpoint: &str) -> bool {
@@ -1869,6 +1906,7 @@ mod tests {
     #[test]
     fn google_embedding_endpoint_strips_key_and_normalizes_batch_endpoint() {
         let cfg = SearchEmbeddingConfig {
+            internal_sync: false,
             enabled: true,
             endpoint: "https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents?key=URL_KEY&alt=json".to_string(),
             api_key: "HEADER_KEY".to_string(),
@@ -1893,6 +1931,7 @@ mod tests {
     #[test]
     fn volcengine_embedding_endpoint_only_appends_for_volcengine_hosts() {
         let cfg = SearchEmbeddingConfig {
+            internal_sync: false,
             enabled: true,
             endpoint: "https://ark.cn-beijing.volces.com/api/v3".to_string(),
             api_key: "ARK_KEY".to_string(),
@@ -1921,6 +1960,7 @@ mod tests {
     #[test]
     fn doubao_multimodal_endpoint_and_body_use_vision_shape() {
         let cfg = SearchEmbeddingConfig {
+            internal_sync: false,
             enabled: true,
             endpoint: "https://ark.cn-beijing.volces.com/api/v3/embeddings?trace=1".to_string(),
             api_key: "ARK_KEY".to_string(),
@@ -1946,6 +1986,7 @@ mod tests {
     #[test]
     fn volcengine_embedding_endpoint_does_not_duplicate_existing_suffixes() {
         let cfg = SearchEmbeddingConfig {
+            internal_sync: false,
             enabled: true,
             endpoint: "https://ARK.cn-beijing.volces.com/api/v3/embeddings".to_string(),
             api_key: "ARK_KEY".to_string(),
@@ -1983,6 +2024,7 @@ mod tests {
     #[test]
     fn doubao_multimodal_detection_is_model_driven_for_custom_gateways() {
         let cfg = SearchEmbeddingConfig {
+            internal_sync: false,
             enabled: true,
             endpoint: "https://gateway.example.com/ark/embeddings/multimodal".to_string(),
             api_key: "KEY".to_string(),

@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next"
 import { createMissingWikiPage, getPageLinks, readFile, type PageLinkEntry, type PageLinksResponse } from "@/commands/fs"
 import { normalizePath } from "@/lib/path-utils"
 import { useWikiStore } from "@/stores/wiki-store"
+import { buildLanguageDirective } from "@/lib/output-language"
 import { streamChat } from "@/lib/llm-client"
 import { refreshProjectFileTree } from "@/lib/project-file-tree-refresh"
 import { normalizeSelectionReplacement } from "@/lib/selection-edit"
@@ -111,7 +112,7 @@ export function PageLinksPanel({ filePath, onClose }: { filePath: string; onClos
         <Link2 className="h-4 w-4 text-primary" />
         <h2 className="min-w-0 flex-1 truncate text-sm font-medium">{t("editor.pageLinks.title")}</h2>
         {!loading && <span className="text-[10px] text-muted-foreground">{total}</span>}
-        <button type="button" onClick={onClose} className="p-1 text-muted-foreground hover:text-foreground" aria-label={t("editor.pageLinks.title")}>
+        <button type="button" onClick={onClose} className="p-1 text-muted-foreground hover:text-foreground" aria-label={t("common.close")}>
           <X className="h-4 w-4" />
         </button>
       </header>
@@ -199,13 +200,16 @@ async function generateMissingPageDraft(
     let content = ""
     void streamChat(
       llmConfig,
-      [{ role: "user", content: [
-        "Create a concise standalone Markdown wiki page for an unresolved link.",
-        "Return the complete page only. Include YAML frontmatter with type, title, tags, and related, followed by useful content. Do not wrap it in a code fence.",
-        `Target title: ${title}`,
-        "Context from the linking page:",
-        currentPage,
-      ].join("\n\n") }],
+      [
+        { role: "system", content: buildLanguageDirective(currentPage) },
+        { role: "user", content: [
+          "Create a concise standalone Markdown wiki page for an unresolved link.",
+          "Return the complete page only. Include YAML frontmatter with type, title, tags, and related, followed by useful content. Do not wrap it in a code fence.",
+          `Target title: ${title}`,
+          "Context from the linking page:",
+          currentPage,
+        ].join("\n\n") },
+      ],
       {
         onToken: (token) => { content += token },
         onDone: () => content.trim() ? resolve(content) : reject(new Error(emptyDraftError)),

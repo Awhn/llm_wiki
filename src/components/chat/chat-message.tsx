@@ -27,11 +27,14 @@ import { getTaskLlmConfig } from "@/lib/llm-task-routing"
 import { messageImageToDataUrl } from "@/lib/chat-image-utils"
 import { resolveMarkdownImageSrc } from "@/lib/markdown-image-resolver"
 import { transformImageEmbeds } from "@/lib/wikilink-transform"
+import { useWikiSync } from "@/lib/wiki-sync"
 import { findRawSourceForImage, imageUrlToAbsolute } from "@/lib/raw-source-resolver"
 import { detectLanguage } from "@/lib/detect-language"
 import { getHtmlLang, getTextDirection } from "@/lib/language-metadata"
 import { MermaidDiagram, unwrapMermaidPre } from "@/components/mermaid-diagram"
 import { inferWikiTypeFromPath } from "@/lib/wiki-page-types"
+import { getOutputLanguage } from "@/lib/output-language"
+import { insertWikiIndexEntry } from "@/lib/wiki-index-section"
 import { cleanAssistantContentForWikiSave, titleFromCleanAssistantContent } from "@/lib/chat-save-to-wiki"
 import type { ChatAgentEvent, ChatAgentEventStage, ChatAgentStep, ChatUserInputField, ChatUserInputRequest } from "@/lib/chat-agent-types"
 import { filterRawSourceTree } from "@/lib/source-filter"
@@ -560,6 +563,7 @@ function SaveToWikiButton({ content, visible }: { content: string; visible: bool
       // (so CJK titles don't collapse to empty) and the HHMMSS
       // timestamp suffix guarantees same-day saves stay distinct.
       const cleanContent = cleanAssistantContentForWikiSave(content)
+      const language = getOutputLanguage(cleanContent)
       const title = titleFromCleanAssistantContent(cleanContent)
       const { date, fileName } = makeQueryFileName(title)
       const filePath = `${pp}/wiki/queries/${fileName}`
@@ -582,21 +586,14 @@ function SaveToWikiButton({ content, visible }: { content: string; visible: bool
       try {
         indexContent = await readFile(indexPath)
       } catch {
-        indexContent = "# Wiki Index\n\n## Queries\n"
+        indexContent = ""
       }
       // The wikilink target is the filename WITHOUT the `.md`
       // extension — must match `fileName` exactly (including the
       // time suffix) or the link lands on a 404.
       const linkTarget = fileName.replace(/\.md$/, "")
       const entry = `- [[queries/${linkTarget}|${title}]]`
-      if (indexContent.includes("## Queries")) {
-        indexContent = indexContent.replace(
-          /(## Queries\n)/,
-          `$1${entry}\n`
-        )
-      } else {
-        indexContent = indexContent.trimEnd() + "\n\n## Queries\n" + entry + "\n"
-      }
+      indexContent = insertWikiIndexEntry(indexContent, "queries", entry, language)
       await writeFile(indexPath, indexContent)
 
       // Append to log.md
@@ -605,9 +602,9 @@ function SaveToWikiButton({ content, visible }: { content: string; visible: bool
       try {
         logContent = await readFile(logPath)
       } catch {
-        logContent = "# Wiki Log\n\n"
+        logContent = language === "Korean" ? "# 위키 기록\n" : "# Wiki Log\n"
       }
-      const logEntry = `- ${date}: Saved query page \`${fileName}\`\n`
+      const logEntry = `- ${date}: ${language === "Korean" ? "질문 문서 저장" : "Saved query page"} \`${fileName}\`\n`
       await writeFile(logPath, logContent.trimEnd() + "\n" + logEntry)
 
       // Refresh file tree and update graph
@@ -859,7 +856,7 @@ function CitedReferencesPanel({
     async (firstUrl: string, fallbackPath: string) => {
       if (!project) return
       const pp = normalizePath(project.path)
-      const rawPath = await findRawSourceForImage(firstUrl, pp)
+      const rawPath = await findRawSourceForImage(firstUrl, pp, Boolean(useWikiSync.getState().config))
       if (rawPath) {
         try {
           const content = await readFile(rawPath)
