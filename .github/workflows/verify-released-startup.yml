@@ -1,0 +1,54 @@
+name: Check published portable app startup
+on:
+  push:
+    branches: [verify/portable-0.6.14-startup]
+permissions:
+  contents: read
+jobs:
+  startup:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-2022, windows-2025]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    steps:
+      - name: Download and verify the public ZIP
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: pwsh
+        run: |
+          $zip = 'LLM-Wiki-0.6.14-windows-x64-portable.zip'
+          gh release download windows-x64-portable-0.6.14 --repo "$env:GITHUB_REPOSITORY" --pattern $zip
+          if ($LASTEXITCODE -ne 0) { throw 'Download failed' }
+          if ((Get-FileHash $zip).Hash -ne 'fd648936dd9d8ca7ca73e826fc998cc77cb29e5dc784e64d0c6075143f660b4b') { throw 'Hash mismatch' }
+          [IO.Compression.ZipFile]::ExtractToDirectory((Resolve-Path $zip).Path, "$env:RUNNER_TEMP/위키 테스트")
+      - name: Check for a visible responding window for one minute
+        shell: pwsh
+        run: |
+          Add-Type -Name Window -Namespace Check -MemberDefinition '[System.Runtime.InteropServices.DllImport("user32.dll")] public static extern bool IsWindowVisible(System.IntPtr hwnd);'
+          $dir = "$env:RUNNER_TEMP/위키 테스트"
+          $log = "$env:RUNNER_TEMP/startup-stderr.log"
+          $p = Start-Process -FilePath "$dir/LLM Wiki.exe" -WorkingDirectory $dir -PassThru -RedirectStandardError $log
+          try {
+            $opened = $false
+            for ($i = 0; $i -lt 45; $i++) {
+              Start-Sleep -Seconds 1
+              $p.Refresh()
+              if ($p.HasExited) { throw ('Early exit 0x{0:X8}' -f $p.ExitCode) }
+              if ($p.MainWindowHandle -ne 0 -and $p.Responding -and [Check.Window]::IsWindowVisible($p.MainWindowHandle)) { $opened = $true; break }
+            }
+            if (!$opened) { throw 'Visible app window never opened' }
+            for ($i = 0; $i -lt 12; $i++) {
+              Start-Sleep -Seconds 5
+              $p.Refresh()
+              if ($p.HasExited) { throw ('Exit after first window: 0x{0:X8}' -f $p.ExitCode) }
+              if (!$p.Responding -or ![Check.Window]::IsWindowVisible($p.MainWindowHandle)) { throw 'Window closed, hidden or unresponsive' }
+            }
+            Write-Output "Window remained visible and responsive for 60 seconds: $($p.MainWindowTitle)"
+          } catch {
+            if (Test-Path $log) { Get-Content $log -Tail 25 }
+            throw
+          } finally {
+            if (!$p.HasExited) { Stop-Process -Id $p.Id }
+          }
